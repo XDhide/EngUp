@@ -129,9 +129,9 @@ export default function PracticeScreen() {
           >
             <ThemedText style={styles.backArrow}>‹</ThemedText>
           </Pressable>
-          <ThemedText style={styles.headerTitle}>🎯 Ôn tập từ vựng</ThemedText>
+          <ThemedText style={styles.headerTitle}>Ôn tập từ vựng</ThemedText>
           <View style={[styles.scoreBadge, { backgroundColor: colors.backgroundElement }]}>
-            <ThemedText type="smallBold">✅ {score}/{total}</ThemedText>
+            <ThemedText type="smallBold">{score}/{total} đúng</ThemedText>
           </View>
         </View>
 
@@ -199,11 +199,11 @@ export default function PracticeScreen() {
           <View style={styles.resultMessage}>
             {selected === question.correct ? (
               <ThemedText style={[styles.resultText, { color: '#34C759' }]}>
-                🎉 Chính xác! Tiếp tục nào...
+                Chính xác! Tiếp tục nào...
               </ThemedText>
             ) : (
               <ThemedText style={[styles.resultText, { color: '#FF3B30' }]}>
-                ❌ Sai rồi! Đáp án đúng là "{question.correct}"
+                Sai rồi! Đáp án đúng là "{question.correct}"
               </ThemedText>
             )}
           </View>

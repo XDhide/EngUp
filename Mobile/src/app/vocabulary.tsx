@@ -74,12 +74,12 @@ export default function VocabularyScreen() {
       </View>
 
       <ThemedText type="default" themeColor="textSecondary">
-        🇻🇳 {item.vietnamese}
+        {item.vietnamese}
       </ThemedText>
 
       <View style={[styles.exampleBox, { backgroundColor: colors.backgroundSelected }]}>
         <ThemedText type="small" themeColor="textSecondary" style={styles.exampleText}>
-          📝 {item.example}
+          {item.example}
         </ThemedText>
       </View>
     </Pressable>
@@ -99,7 +99,7 @@ export default function VocabularyScreen() {
           >
             <ThemedText style={styles.backArrow}>‹</ThemedText>
           </Pressable>
-          <ThemedText style={styles.headerTitle}>📚 Danh sách từ vựng</ThemedText>
+          <ThemedText style={styles.headerTitle}>Danh sách từ vựng</ThemedText>
           <ThemedText type="small" themeColor="textSecondary">
             {VOCABULARY_DATA.length} từ
           </ThemedText>
