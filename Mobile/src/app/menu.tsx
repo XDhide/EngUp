@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { SymbolView } from 'expo-symbols';
+import { SymbolView, SFSymbol } from 'expo-symbols';
 import { Pressable, ScrollView, StyleSheet, useColorScheme, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -16,7 +16,7 @@ const STATS = {
 };
 
 type MenuCardProps = {
-  symbol: string;
+  symbol: SFSymbol;
   title: string;
   description: string;
   onPress: () => void;
@@ -41,7 +41,7 @@ function MenuCard({ symbol, title, description, onPress, disabled }: MenuCardPro
     >
       <View style={[styles.menuCardIcon, { backgroundColor: colors.backgroundSelected }]}>
         <SymbolView
-          name={{ ios: symbol as any, web: symbol }}
+          name={symbol}
           tintColor={colors.text}
           size={22}
         />
@@ -56,7 +56,7 @@ function MenuCard({ symbol, title, description, onPress, disabled }: MenuCardPro
       </View>
       {!disabled && (
         <SymbolView
-          name={{ ios: 'chevron.right', web: 'chevron_right' }}
+          name="chevron.right"
           tintColor={colors.textSecondary}
           size={14}
         />
@@ -95,7 +95,7 @@ export default function MenuScreen() {
           <ThemedView type="backgroundElement" style={styles.statsCard}>
             <View style={styles.statsTitleRow}>
               <SymbolView
-                name={{ ios: 'chart.bar.fill', web: 'bar_chart' }}
+                name="chart.bar.fill"
                 tintColor={colors.text}
                 size={18}
               />
