@@ -9,6 +9,7 @@ Backend/
 │   │   │   ├── auth.service.js
 │   │   │   ├── auth.routes.js
 │   │   │   └── auth.validation.js
+            └── auth.Repository.js
 │   │   │
 │   │   ├── user/
 │   │   │   ├── user.controller.js
