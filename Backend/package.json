@@ -8,7 +8,10 @@
   "main": "index.js",
   "scripts": {
     "start": "node src/server.js",
-    "dev": "nodemon src/server.js"
+    "dev": "nodemon src/server.js",
+    "db:migrate": "node src/scripts/migrateSql.js",
+    "db:sync": "node src/scripts/syncDb.js",
+    "db:sync:force": "node src/scripts/syncDb.js --force"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
