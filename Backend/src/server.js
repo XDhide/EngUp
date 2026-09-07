@@ -7,6 +7,7 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 
 const { testConnection } = require('./config/db');
+const db = require('./common/models');
 const routes = require('./routes');
 const errorMiddleware = require('./common/middlewares/error.middleware');
 
@@ -35,17 +36,17 @@ app.get('/', (req, res) => {
 
 // ==== Error middleware (đặt cuối) ====
 app.use(errorMiddleware);
-require('dotenv').config();
-console.log('DB_HOST:', process.env.DB_HOST);
-console.log('DB_USER:', process.env.DB_USER);
-console.log('DB_PASSWORD:', process.env.DB_PASSWORD);
-console.log('DB_NAME:', process.env.DB_NAME);
+
 // ==== Khởi động ====
 const PORT = process.env.PORT || 5000;
 
 (async () => {
-  await testConnection();
-  app.listen(PORT, () => {
-    console.log(`✅ Server đang chạy tại http://localhost:${PORT}`);
-  });
+  try {
+    await testConnection();
+    app.listen(PORT, () => {
+      console.log(`✅ Server đang chạy tại http://localhost:${PORT}`);
+    });
+  } catch (error) {
+    console.error('❌ Không thể khởi động server do lỗi kết nối Database:', error.message);
+  }
 })();
