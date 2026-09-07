@@ -1,0 +1,27 @@
+# ==== Chung ====
+node_modules/
+.env
+.env.*
+!.env.example
+*.log
+
+# ==== Backend ====
+Backend/node_modules/
+Backend/.env
+
+# ==== Mobile (Expo/React Native) ====
+Mobile/node_modules/
+Mobile/.expo/
+Mobile/dist/
+Mobile/web-build/
+Mobile/*.jks
+Mobile/*.p8
+Mobile/*.p12
+Mobile/*.key
+Mobile/*.mobileprovision
+
+# ==== IDE / OS ====
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
