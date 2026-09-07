@@ -31,7 +31,10 @@ Backend/
 │   │   │   ├── generateToken.js
 │   │   │   └── response.js
 │   │   └── constants/
-│   │       └── roles.js
+│   │   |    └── roles.js
+│   │   └── Model/
+│   │       └── users.model.js
+│   │       └── refresh_tokens.model.js
 │   │
 │   ├── config/
 │   │   └── db.js
