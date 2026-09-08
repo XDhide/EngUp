@@ -101,9 +101,32 @@ function validateUpdateProfile(req, res, next) {
   next();
 }
 
+// ---- POST /api/auth/placement-test/submit ----
+function validateSubmitPlacementTest(req, res, next) {
+  const { answers } = req.body || {};
+  const errors = [];
+
+  if (!Array.isArray(answers) || answers.length === 0) {
+    errors.push('answers phải là một mảng và không được rỗng');
+  } else {
+    answers.forEach((a, index) => {
+      if (!a || typeof a !== 'object' || a.question_id === undefined || a.answer === undefined) {
+        errors.push(`answers[${index}] phải có question_id và answer`);
+      }
+    });
+  }
+
+  if (errors.length > 0) {
+    return next(new AppError(errors.join('; '), 400));
+  }
+
+  next();
+}
+
 module.exports = {
   validateRegister,
   validateLogin,
   validateRefreshToken,
-  validateUpdateProfile
+  validateUpdateProfile,
+  validateSubmitPlacementTest
 };

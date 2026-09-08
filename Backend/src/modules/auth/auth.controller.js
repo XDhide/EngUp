@@ -101,11 +101,45 @@ async function updateMe(req, res, next) {
   }
 }
 
+// GET /api/auth/placement-test/questions
+async function getPlacementTestQuestions(req, res, next) {
+  try {
+    const data = authService.getPlacementTestQuestions();
+
+    return successResponse(res, {
+      message: 'Lấy danh sách câu hỏi placement test thành công',
+      data,
+      statusCode: 200
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// POST /api/auth/placement-test/submit
+async function submitPlacementTest(req, res, next) {
+  try {
+    const { answers } = req.body;
+
+    const data = await authService.submitPlacementTest(req.user.id, answers);
+
+    return successResponse(res, {
+      message: 'Nộp bài placement test thành công',
+      data,
+      statusCode: 200
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   register,
   login,
   refresh,
   logout,
   getMe,
-  updateMe
+  updateMe,
+  getPlacementTestQuestions,
+  submitPlacementTest
 };

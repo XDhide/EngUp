@@ -42,6 +42,12 @@ async function revokeRefreshToken(refreshTokenRecord) {
   return refreshTokenRecord.save();
 }
 
+// ---- Placement Test ----
+
+async function createPlacementTestResult({ user_id, answers, suggested_level }) {
+  return PlacementTestResult.create({ user_id, answers, suggested_level });
+}
+
 module.exports = {
   findUserByEmail,
   findUserById,
@@ -49,5 +55,6 @@ module.exports = {
   updateUserById,
   createRefreshToken,
   findRefreshTokenByHash,
-  revokeRefreshToken
+  revokeRefreshToken,
+  createPlacementTestResult
 };

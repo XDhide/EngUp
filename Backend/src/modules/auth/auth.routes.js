@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 
 const authController = require('./auth.controller');
-const { validateRegister, validateLogin, validateRefreshToken, validateUpdateProfile } = require('./auth.validation');
+const { validateRegister, validateLogin, validateRefreshToken, validateUpdateProfile, validateSubmitPlacementTest } = require('./auth.validation');
 const authenticateJWT = require('../../common/middlewares/auth.middleware');
 
 // POST /api/auth/register
@@ -22,5 +22,11 @@ router.get('/me', authenticateJWT, authController.getMe);
 
 // PUT /api/auth/me
 router.put('/me', authenticateJWT, validateUpdateProfile, authController.updateMe);
+
+// GET /api/auth/placement-test/questions
+router.get('/placement-test/questions', authController.getPlacementTestQuestions);
+
+// POST /api/auth/placement-test/submit
+router.post('/placement-test/submit', authenticateJWT, validateSubmitPlacementTest, authController.submitPlacementTest);
 
 module.exports = router;

@@ -13,7 +13,18 @@ const {
   getExpiryDateFromJwt
 } = require('../../common/utils/token');
 
+const { PLACEMENT_TEST_QUESTIONS, LEVEL_THRESHOLDS } = require('./placementTest.data');
+
 const SALT_ROUNDS = 10;
+
+// Trả về thông tin công khai tối thiểu cho register/login (không bao giờ trả password_hash)
+function toPublicUser(user) {
+  return {
+    id: user.id,
+    email: user.email,
+    full_name: user.full_name
+  };
+}
 
 // Trả về đầy đủ field hồ sơ cho GET/PUT /api/auth/me (vẫn không bao giờ trả password_hash)
 function toProfileUser(user) {
@@ -142,11 +153,54 @@ async function logout({ refresh_token }) {
   return null;
 }
 
+// ---- Placement Test ----
+
+function getPlacementTestQuestions() {
+  const questions = PLACEMENT_TEST_QUESTIONS.map(({ id, question_text, options }) => ({
+    id,
+    question_text,
+    options: options.map(({ id: optionId, text }) => ({ id: optionId, text }))
+  }));
+
+  return { questions };
+}
+
+function calculateSuggestedLevel(correctCount, totalCount) {
+  const percent = totalCount > 0 ? (correctCount / totalCount) * 100 : 0;
+  const matched = LEVEL_THRESHOLDS.find((t) => percent >= t.minPercent);
+  return matched ? matched.level : 'A1';
+}
+
+async function submitPlacementTest(userId, answers) {
+  const answerByQuestionId = new Map(answers.map((a) => [Number(a.question_id), a.answer]));
+
+  let correctCount = 0;
+  PLACEMENT_TEST_QUESTIONS.forEach((q) => {
+    if (answerByQuestionId.get(q.id) === q.correct_option_id) {
+      correctCount += 1;
+    }
+  });
+
+  const suggested_level = calculateSuggestedLevel(correctCount, PLACEMENT_TEST_QUESTIONS.length);
+
+  await authRepository.createPlacementTestResult({
+    user_id: userId,
+    answers,
+    suggested_level
+  });
+
+  await authRepository.updateUserById(userId, { level_current: suggested_level });
+
+  return { suggested_level };
+}
+
 module.exports = {
   register,
   login,
   refreshAccessToken,
   logout,
   getProfile,
-  updateProfile
+  updateProfile,
+  getPlacementTestQuestions,
+  submitPlacementTest
 };
