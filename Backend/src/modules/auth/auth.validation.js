@@ -54,7 +54,19 @@ function validateLogin(req, res, next) {
   next();
 }
 
+// ---- Refresh Token ----
+function validateRefreshToken(req, res, next) {
+  const { refresh_token } = req.body || {};
+
+  if (!refresh_token || typeof refresh_token !== 'string') {
+    return next(new AppError('Refresh token không được để trống', 400));
+  }
+
+  next();
+}
+
 module.exports = {
   validateRegister,
-  validateLogin
+  validateLogin,
+  validateRefreshToken
 };

@@ -8,6 +8,7 @@ const AppError = require('../../common/utils/AppError');
 const {
   generateAccessToken,
   generateRefreshToken,
+  verifyRefreshToken,
   hashToken,
   getExpiryDateFromJwt
 } = require('../../common/utils/token');
@@ -80,7 +81,47 @@ async function login({ email, password }) {
   };
 }
 
+// ---- Refresh Token ----
+async function refreshAccessToken({ refresh_token }) {
+  let payload;
+  try {
+    payload = verifyRefreshToken(refresh_token);
+  } catch (err) {
+    throw new AppError('Refresh token không hợp lệ hoặc đã hết hạn', 401);
+  }
+
+  const tokenRecord = await authRepository.findRefreshTokenByHash(hashToken(refresh_token));
+
+  if (!tokenRecord || tokenRecord.revoked_at || tokenRecord.expires_at < new Date()) {
+    throw new AppError('Refresh token đã bị thu hồi hoặc hết hạn', 401);
+  }
+
+  const user = await authRepository.findUserById(payload.id);
+  if (!user || !user.is_active) {
+    throw new AppError('Tài khoản không tồn tại hoặc đã bị khoá', 401);
+  }
+
+  const access_token = generateAccessToken({ id: user.id, role: user.role });
+
+  return { access_token };
+}
+
+// ---- Logout ----
+async function logout({ refresh_token }) {
+  const tokenRecord = await authRepository.findRefreshTokenByHash(hashToken(refresh_token));
+
+  if (!tokenRecord || tokenRecord.revoked_at) {
+    throw new AppError('Refresh token không hợp lệ', 401);
+  }
+
+  await authRepository.revokeRefreshToken(tokenRecord);
+
+  return null;
+}
+
 module.exports = {
   register,
-  login
+  login,
+  refreshAccessToken,
+  logout
 };

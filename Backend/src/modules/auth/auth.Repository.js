@@ -25,9 +25,20 @@ async function createRefreshToken({ user_id, token_hash, expires_at }) {
   return RefreshToken.create({ user_id, token_hash, expires_at });
 }
 
+async function findRefreshTokenByHash(token_hash) {
+  return RefreshToken.findOne({ where: { token_hash } });
+}
+
+async function revokeRefreshToken(refreshTokenRecord) {
+  refreshTokenRecord.revoked_at = new Date();
+  return refreshTokenRecord.save();
+}
+
 module.exports = {
   findUserByEmail,
   findUserById,
   createUser,
-  createRefreshToken
+  createRefreshToken,
+  findRefreshTokenByHash,
+  revokeRefreshToken
 };

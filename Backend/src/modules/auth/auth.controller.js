@@ -37,7 +37,43 @@ async function login(req, res, next) {
   }
 }
 
+// POST /api/auth/refresh
+async function refresh(req, res, next) {
+  try {
+    const { refresh_token } = req.body;
+
+    const data = await authService.refreshAccessToken({ refresh_token });
+
+    return successResponse(res, {
+      message: 'Làm mới access token thành công',
+      data,
+      statusCode: 200
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// POST /api/auth/logout
+async function logout(req, res, next) {
+  try {
+    const { refresh_token } = req.body;
+
+    await authService.logout({ refresh_token });
+
+    return successResponse(res, {
+      message: 'Đăng xuất thành công',
+      data: null,
+      statusCode: 200
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   register,
-  login
+  login,
+  refresh,
+  logout
 };
