@@ -56,6 +56,31 @@ async function register({ email, password, full_name }) {
   };
 }
 
+async function login({ email, password }) {
+  const user = await authRepository.findUserByEmail(email);
+  // Không tiết lộ email có tồn tại hay không -> luôn trả cùng 1 message chung
+  if (!user) {
+    throw new AppError('Email hoặc mật khẩu không đúng', 401);
+  }
+
+  if (!user.is_active) {
+    throw new AppError('Tài khoản đã bị khoá', 403);
+  }
+
+  const isPasswordValid = await bcrypt.compare(password, user.password_hash);
+  if (!isPasswordValid) {
+    throw new AppError('Email hoặc mật khẩu không đúng', 401);
+  }
+
+  const tokens = await issueTokens(user);
+
+  return {
+    user: toPublicUser(user),
+    ...tokens
+  };
+}
+
 module.exports = {
-  register
+  register,
+  login
 };

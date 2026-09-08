@@ -21,6 +21,23 @@ async function register(req, res, next) {
   }
 }
 
+async function login(req, res, next) {
+  try {
+    const { email, password } = req.body;
+
+    const data = await authService.login({ email, password });
+
+    return successResponse(res, {
+      message: 'Đăng nhập thành công',
+      data,
+      statusCode: 200
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
-  register
+  register,
+  login
 };
