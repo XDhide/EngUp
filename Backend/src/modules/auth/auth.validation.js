@@ -5,6 +5,8 @@
 const AppError = require('../../common/utils/AppError');
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const VALID_LEVELS = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
+const ALLOWED_UPDATE_FIELDS = ['level_current', 'learning_goal', 'daily_target_minutes'];
 
 function validateRegister(req, res, next) {
   const { email, password, full_name } = req.body || {};
@@ -65,8 +67,43 @@ function validateRefreshToken(req, res, next) {
   next();
 }
 
+// ---- PUT /api/auth/me ----
+function validateUpdateProfile(req, res, next) {
+  const body = req.body || {};
+  const errors = [];
+
+  const unknownFields = Object.keys(body).filter((field) => !ALLOWED_UPDATE_FIELDS.includes(field));
+  if (unknownFields.length > 0) {
+    errors.push(`Field không hợp lệ: ${unknownFields.join(', ')}`);
+  }
+
+  if (body.level_current !== undefined && !VALID_LEVELS.includes(body.level_current)) {
+    errors.push('level_current phải là một trong A1, A2, B1, B2, C1, C2');
+  }
+
+  if (body.learning_goal !== undefined) {
+    if (typeof body.learning_goal !== 'string' || !body.learning_goal.trim()) {
+      errors.push('learning_goal không hợp lệ');
+    }
+  }
+
+  if (body.daily_target_minutes !== undefined) {
+    const value = body.daily_target_minutes;
+    if (!Number.isInteger(value) || value <= 0) {
+      errors.push('daily_target_minutes phải là số nguyên dương');
+    }
+  }
+
+  if (errors.length > 0) {
+    return next(new AppError(errors.join('; '), 400));
+  }
+
+  next();
+}
+
 module.exports = {
   validateRegister,
   validateLogin,
-  validateRefreshToken
+  validateRefreshToken,
+  validateUpdateProfile
 };

@@ -15,13 +15,36 @@ const {
 
 const SALT_ROUNDS = 10;
 
-// Chỉ trả về những field an toàn của user (không bao giờ trả password_hash)
-function toPublicUser(user) {
+// Trả về đầy đủ field hồ sơ cho GET/PUT /api/auth/me (vẫn không bao giờ trả password_hash)
+function toProfileUser(user) {
   return {
     id: user.id,
     email: user.email,
-    full_name: user.full_name
+    full_name: user.full_name,
+    level_current: user.level_current,
+    learning_goal: user.learning_goal,
+    daily_target_minutes: user.daily_target_minutes,
+    daily_new_word_limit: user.daily_new_word_limit
   };
+}
+
+// ---- Hồ sơ người dùng ----
+async function getProfile(userId) {
+  const user = await authRepository.findUserById(userId);
+  if (!user) {
+    throw new AppError('Người dùng không tồn tại', 404);
+  }
+
+  return toProfileUser(user);
+}
+
+async function updateProfile(userId, fieldsToUpdate) {
+  const user = await authRepository.updateUserById(userId, fieldsToUpdate);
+  if (!user) {
+    throw new AppError('Người dùng không tồn tại', 404);
+  }
+
+  return toProfileUser(user);
 }
 
 // Phát hành cặp access/refresh token và lưu bản ghi refresh token (đã hash) vào DB
@@ -123,5 +146,7 @@ module.exports = {
   register,
   login,
   refreshAccessToken,
-  logout
+  logout,
+  getProfile,
+  updateProfile
 };

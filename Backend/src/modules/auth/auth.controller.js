@@ -71,9 +71,41 @@ async function logout(req, res, next) {
   }
 }
 
+// GET /api/auth/me
+async function getMe(req, res, next) {
+  try {
+    const data = await authService.getProfile(req.user.id);
+
+    return successResponse(res, {
+      message: 'Lấy hồ sơ thành công',
+      data,
+      statusCode: 200
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// PUT /api/auth/me
+async function updateMe(req, res, next) {
+  try {
+    const data = await authService.updateProfile(req.user.id, req.body);
+
+    return successResponse(res, {
+      message: 'Cập nhật hồ sơ thành công',
+      data,
+      statusCode: 200
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   register,
   login,
   refresh,
-  logout
+  logout,
+  getMe,
+  updateMe
 };
