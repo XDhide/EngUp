@@ -1,6 +1,3 @@
-// src/modules/auth/auth.routes.js
-// Router layer: chỉ khai báo endpoint + gắn validation/controller tương ứng.
-
 const express = require('express');
 const router = express.Router();
 
