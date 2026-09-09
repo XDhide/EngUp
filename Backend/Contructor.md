@@ -8,20 +8,33 @@ Backend/
 │   │   │   ├── auth.controller.js
 │   │   │   ├── auth.service.js
 │   │   │   ├── auth.routes.js
-│   │   │   └── auth.validation.js
+│   │   │   ├── auth.validation.js
+│   │   │   ├── auth.dtos.js
             └── auth.Repository.js
 │   │   │
 │   │   ├── user/
 │   │   │   ├── user.controller.js
 │   │   │   ├── user.service.js
 │   │   │   ├── user.routes.js
-│   │   │   └── user.validation.js
+│   │   │   ├── user.validation.js
+│   │   │   ├── user.dtos.js
+│   │   │   └── user.Repository.js
 │   │   │
 │   │   ├── vocabulary/
 │   │   │   ├── vocabulary.controller.js
 │   │   │   ├── vocabulary.service.js
 │   │   │   ├── vocabulary.routes.js
-│   │   │   └── vocabulary.validation.js
+│   │   │   ├── vocabulary.validation.js
+│   │   │   ├── vocabulary.dtos.js
+│   │   │   └── vocabulary.Repository.js
+│   │   │
+│   │   ├── notebook/
+│   │   │   ├── notebook.controller.js
+│   │   │   ├── notebook.service.js
+│   │   │   ├── notebook.routes.js
+│   │   │   ├── notebook.validation.js
+│   │   │   ├── notebook.dtos.js
+│   │   │   └── notebook.Repository.js
 │   │   │
 │   ├── common/
 │   │   ├── middlewares/
@@ -65,6 +78,7 @@ Trái tim của dự án theo mô hình **feature-based** — mỗi tính năng 
 - **`auth/`** — đăng ký, đăng nhập, refresh token, quên mật khẩu.
 - **`user/`** — quản lý thông tin tài khoản, hồ sơ cá nhân, đổi mật khẩu.
 - **`vocabulary/`** — quản lý kho từ vựng: thêm/sửa/xoá từ, phiên âm, ví dụ, audio phát âm, cấp độ (A1, A2, B1...).
+- **`notebook/`** — sổ tay cá nhân: lưu từ vào sổ tay, xem/sửa/xoá ghi chú, gắn tag; tham chiếu read-only sang Vocabulary qua `word_id`, không gọi service/API của module khác.
 - **`lesson/`** — quản lý bài học: nội dung bài, sắp xếp theo chủ đề/cấp độ.
 - **`quiz/`** — bài kiểm tra, câu hỏi trắc nghiệm, chấm điểm.
 - **`progress/`** — theo dõi tiến độ học của người dùng: đã học bài nào, điểm quiz, số từ đã ôn (phù hợp nếu sau này làm thêm tính năng ôn tập kiểu spaced repetition).
@@ -74,6 +88,8 @@ Trong mỗi module:
 - **`*.controller.js`** — nhận request từ route, gọi đến service tương ứng, rồi trả response về client. Không chứa logic nghiệp vụ phức tạp ở đây.
 - **`*.service.js`** — nơi chứa logic nghiệp vụ thực sự (xử lý dữ liệu, gọi query DB, tính toán...). Tách riêng khỏi controller để dễ test và tái sử dụng.
 - **`*.validation.js`** — kiểm tra dữ liệu đầu vào từ client (email đúng định dạng, mật khẩu đủ độ dài...) trước khi đưa vào service, tránh dữ liệu rác/lỗi lọt vào DB.
+- **`*.Repository.js`** — lớp DUY NHẤT trong module được phép truy vấn trực tiếp Sequelize model. Service không bao giờ import model trực tiếp mà luôn gọi qua Repository.
+- **`*.dtos.js`** — Data Transfer Object: các hàm map dữ liệu từ model/entity sang đúng shape trả về cho client (ẩn field nhạy cảm như `password_hash`, chuẩn hoá tên field...). Service gọi các hàm này để tạo response thay vì tự định dạng object trả về ngay trong logic nghiệp vụ, giúp tách rõ "xử lý nghiệp vụ" và "định dạng dữ liệu output".
 
 ### `src/common/`
 Chứa những thành phần dùng chung cho **toàn bộ ứng dụng**, không thuộc riêng module nào.

@@ -14,30 +14,9 @@ const {
 } = require('../../common/utils/token');
 
 const { PLACEMENT_TEST_QUESTIONS, LEVEL_THRESHOLDS } = require('./placementTest.data');
+const { toPublicUser, toProfileUser, toPlacementTestQuestionDto } = require('./auth.dtos');
 
 const SALT_ROUNDS = 10;
-
-// Trả về thông tin công khai tối thiểu cho register/login (không bao giờ trả password_hash)
-function toPublicUser(user) {
-  return {
-    id: user.id,
-    email: user.email,
-    full_name: user.full_name
-  };
-}
-
-// Trả về đầy đủ field hồ sơ cho GET/PUT /api/auth/me (vẫn không bao giờ trả password_hash)
-function toProfileUser(user) {
-  return {
-    id: user.id,
-    email: user.email,
-    full_name: user.full_name,
-    level_current: user.level_current,
-    learning_goal: user.learning_goal,
-    daily_target_minutes: user.daily_target_minutes,
-    daily_new_word_limit: user.daily_new_word_limit
-  };
-}
 
 // ---- Hồ sơ người dùng ----
 async function getProfile(userId) {
@@ -156,11 +135,7 @@ async function logout({ refresh_token }) {
 // ---- Placement Test ----
 
 function getPlacementTestQuestions() {
-  const questions = PLACEMENT_TEST_QUESTIONS.map(({ id, question_text, options }) => ({
-    id,
-    question_text,
-    options: options.map(({ id: optionId, text }) => ({ id: optionId, text }))
-  }));
+  const questions = PLACEMENT_TEST_QUESTIONS.map(toPlacementTestQuestionDto);
 
   return { questions };
 }
