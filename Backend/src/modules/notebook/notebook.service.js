@@ -1,19 +1,6 @@
 const notebookRepository = require('./notebook.Repository');
 const AppError = require('../../common/utils/AppError');
-
-function toEntryResponse(entry) {
-  return {
-    id: entry.id,
-    user_id: entry.user_id,
-    word_id: entry.word_id,
-    source_type: entry.source_type,
-    source_id: entry.source_id,
-    note: entry.note,
-    tags: entry.tags,
-    created_at: entry.created_at,
-    updated_at: entry.updated_at
-  };
-}
+const { toEntryDto } = require('./notebook.dtos');
 
 async function createEntry(userId, { word_id, source_type, source_id, note, tags }) {
   const word = await notebookRepository.findVocabularyWordById(word_id);
@@ -35,12 +22,12 @@ async function createEntry(userId, { word_id, source_type, source_id, note, tags
     await notebookRepository.createDefaultUserVocabularyCard(userId, word_id);
   }
 
-  return toEntryResponse(entry);
+  return toEntryDto(entry);
 }
 
 async function getEntries(userId, { source_type, tag, date_from, date_to }) {
   const entries = await notebookRepository.findAllByUser(userId, { source_type, tag, date_from, date_to });
-  return { entries: entries.map(toEntryResponse) };
+  return { entries: entries.map(toEntryDto) };
 }
 
 async function updateEntry(userId, entryId, { note, tags }) {
@@ -54,7 +41,7 @@ async function updateEntry(userId, entryId, { note, tags }) {
   if (tags !== undefined) fieldsToUpdate.tags = tags;
 
   const updatedEntry = await notebookRepository.updateEntry(entry, fieldsToUpdate);
-  return toEntryResponse(updatedEntry);
+  return toEntryDto(updatedEntry);
 }
 
 async function deleteEntry(userId, entryId) {
