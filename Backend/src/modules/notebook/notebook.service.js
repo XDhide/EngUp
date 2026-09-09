@@ -1,11 +1,6 @@
-// src/modules/notebook/notebook.service.js
-// Service layer: chứa toàn bộ logic nghiệp vụ. Luôn lấy/ghi dữ liệu thông qua
-// notebook.Repository.js, không import model trực tiếp ở đây.
-
 const notebookRepository = require('./notebook.Repository');
 const AppError = require('../../common/utils/AppError');
 
-// Chuẩn hoá dữ liệu entry trả về cho client
 function toEntryResponse(entry) {
   return {
     id: entry.id,
@@ -20,9 +15,7 @@ function toEntryResponse(entry) {
   };
 }
 
-// ---- Lưu từ vào sổ tay ----
 async function createEntry(userId, { word_id, source_type, source_id, note, tags }) {
-  // Kiểm tra từ vựng có tồn tại không (đọc read-only, không đụng service của Vocabulary)
   const word = await notebookRepository.findVocabularyWordById(word_id);
   if (!word) {
     throw new AppError('Từ vựng không tồn tại', 404);
@@ -37,7 +30,6 @@ async function createEntry(userId, { word_id, source_type, source_id, note, tags
     tags: tags ?? null
   });
 
-  // Nếu user chưa có user_vocabulary_cards cho word_id này thì tạo mới 1 bản ghi mặc định
   const existingCard = await notebookRepository.findUserVocabularyCard(userId, word_id);
   if (!existingCard) {
     await notebookRepository.createDefaultUserVocabularyCard(userId, word_id);
@@ -46,6 +38,38 @@ async function createEntry(userId, { word_id, source_type, source_id, note, tags
   return toEntryResponse(entry);
 }
 
+async function getEntries(userId, { source_type, tag, date_from, date_to }) {
+  const entries = await notebookRepository.findAllByUser(userId, { source_type, tag, date_from, date_to });
+  return { entries: entries.map(toEntryResponse) };
+}
+
+async function updateEntry(userId, entryId, { note, tags }) {
+  const entry = await notebookRepository.findByIdAndUser(entryId, userId);
+  if (!entry) {
+    throw new AppError('Ghi chú sổ tay không tồn tại', 404);
+  }
+
+  const fieldsToUpdate = {};
+  if (note !== undefined) fieldsToUpdate.note = note;
+  if (tags !== undefined) fieldsToUpdate.tags = tags;
+
+  const updatedEntry = await notebookRepository.updateEntry(entry, fieldsToUpdate);
+  return toEntryResponse(updatedEntry);
+}
+
+async function deleteEntry(userId, entryId) {
+  const entry = await notebookRepository.findByIdAndUser(entryId, userId);
+  if (!entry) {
+    throw new AppError('Ghi chú sổ tay không tồn tại', 404);
+  }
+
+  await notebookRepository.deleteEntry(entry);
+  return null;
+}
+
 module.exports = {
-  createEntry
+  createEntry,
+  getEntries,
+  updateEntry,
+  deleteEntry
 };
