@@ -1,4 +1,4 @@
-const vocabularyRepository = require('./vocabulary.Repository');
+const vocabularyRepository = require('./vocabulary.repository');
 const AppError = require('../../common/utils/AppError');
 const {
   toTopicDto,
