@@ -8,5 +8,6 @@ router.use('/listening', require('../modules/listening/listening.routes'));
 router.use('/writing', require('../modules/writing/writing.routes'));
 router.use('/vocabulary', require('../modules/vocabulary/vocabulary.routes'));
 // router.use('/vocabulary', require('../modules/vocabulary/vocabulary.routes'));
+router.use('/stats', require('../modules/statistics/statistics.routes'));
 
 module.exports = router;
