@@ -2,7 +2,7 @@
 // Service layer: chứa toàn bộ logic nghiệp vụ. Luôn lấy/ghi dữ liệu thông qua
 // auth.Repository.js, không import model trực tiếp ở đây.
 
-const bcrypt = require('bcryptjs');
+const { hashPassword, comparePassword } = require('../../common/utils/password');
 const authRepository = require('./auth.Repository');
 const AppError = require('../../common/utils/AppError');
 const {
@@ -15,8 +15,6 @@ const {
 
 const { PLACEMENT_TEST_QUESTIONS, LEVEL_THRESHOLDS } = require('./placementTest.data');
 const { toPublicUser, toProfileUser, toPlacementTestQuestionDto } = require('./auth.dtos');
-
-const SALT_ROUNDS = 10;
 
 // ---- Hồ sơ người dùng ----
 async function getProfile(userId) {
@@ -59,7 +57,7 @@ async function register({ email, password, full_name }) {
     throw new AppError('Email đã tồn tại', 409);
   }
 
-  const password_hash = await bcrypt.hash(password, SALT_ROUNDS);
+  const password_hash = await hashPassword(password);
   const user = await authRepository.createUser({ email, password_hash, full_name });
 
   const tokens = await issueTokens(user);
@@ -81,7 +79,7 @@ async function login({ email, password }) {
     throw new AppError('Tài khoản đã bị khoá', 403);
   }
 
-  const isPasswordValid = await bcrypt.compare(password, user.password_hash);
+  const isPasswordValid = await comparePassword(password, user.password_hash);
   if (!isPasswordValid) {
     throw new AppError('Email hoặc mật khẩu không đúng', 401);
   }

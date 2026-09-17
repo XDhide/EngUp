@@ -38,7 +38,7 @@ db.NotificationSetting = require('./notification_settings')(sequelize);
 db.Notification = require('./notifications')(sequelize);
 db.NotificationTemplate = require('./notification_templates')(sequelize);
 
-db.AuditLog = require('./audit_logs')(sequelize);
+db.AuditLog = require('../../modules/admin-auth/admin-auth.model')(sequelize);
 db.AdminContentApprovalQueue = require('./admin_content_approval_queue')(sequelize);
 db.ErrorLog = require('./error_logs')(sequelize);
 
