@@ -12,7 +12,7 @@ function scheduleStreakJob() {
     }
   });
 
-  console.log(`🕐 Đã lên lịch streak job hàng ngày (cron: "${STREAK_JOB_CRON_EXPRESSION}")`);
+  console.log(`Đã lên lịch streak job hàng ngày (cron: "${STREAK_JOB_CRON_EXPRESSION}")`);
 }
 
 module.exports = { scheduleStreakJob };

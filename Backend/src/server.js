@@ -40,9 +40,9 @@ const PORT = process.env.PORT || 5000;
     await testConnection();
     scheduleStreakJob();
     app.listen(PORT, () => {
-      console.log(`✅ Server đang chạy tại http://localhost:${PORT}`);
+      console.log(`Server đang chạy tại http://localhost:${PORT}`);
     });
   } catch (error) {
-    console.error('❌ Không thể khởi động server do lỗi kết nối Database:', error.message);
+    console.error('Không thể khởi động server do lỗi kết nối Database:', error.message);
   }
 })();
