@@ -10,7 +10,6 @@ const {
 const GRADABLE_QUESTION_TYPES = ['multiple_choice', 'fill_blank'];
 const AI_GRADED_QUESTION_TYPES = ['essay', 'speaking_prompt'];
 
-
 async function getTestSets({ exam_type, section }) {
   const testSets = await testRepository.findTestSets({ exam_type, section });
   return { test_sets: testSets.map(toTestSetListItemDto) };
@@ -24,7 +23,6 @@ async function getQuestions(testSetId) {
   const questions = await testRepository.findQuestionsByTestSetId(testSetId);
   return { questions: questions.map(toQuestionForAttemptDto) };
 }
-
 
 async function startAttempt(userId, testSetId) {
   const testSet = await testRepository.findTestSetById(testSetId);
@@ -45,13 +43,12 @@ async function startAttempt(userId, testSetId) {
   };
 }
 
-
 function convertScoreToBand(examType, scorePercent) {
   if (scorePercent === null || scorePercent === undefined) return null;
   if (examType === 'IELTS') {
-    return Math.round((scorePercent / 100) * 9 * 2) / 2; 
+    return Math.round((scorePercent / 100) * 9 * 2) / 2;
   }
-  return Math.round((scorePercent / 100) * 990); 
+  return Math.round((scorePercent / 100) * 990);
 }
 
 async function submitAttempt(userId, { attempt_id, answers }) {
@@ -86,7 +83,6 @@ async function submitAttempt(userId, { attempt_id, answers }) {
 
   return { score, band_score: bandScore };
 }
-
 
 function buildExamGradingPrompt(examType, section) {
   const scaleText =
@@ -138,7 +134,6 @@ async function submitWriting(userId, testSetId, { attempt_id, content }) {
   return { band_score: parsed.band_score, feedback: parsed.feedback };
 }
 
-
 async function getAttemptResult(userId, attemptId) {
   const attempt = await testRepository.findAttemptWithTestSetForUser(attemptId, userId);
   if (!attempt) {
@@ -147,9 +142,6 @@ async function getAttemptResult(userId, attemptId) {
 
   let answersReview = null;
 
-  // Bài trắc nghiệm: answers là mảng [{question_id, answer}] -> so sánh với correct_answer.
-  // Bài Writing/Speaking: answers là { content } -> không có gì để so sánh đúng/sai,
-  // feedback chi tiết đã được trả về ngay lúc submit-writing, không lưu lại ở đây.
   if (Array.isArray(attempt.answers)) {
     const answerMap = new Map(attempt.answers.map((a) => [Number(a.question_id), a.answer]));
     const gradableQuestions = (attempt.testSet.questions || []).filter((q) =>

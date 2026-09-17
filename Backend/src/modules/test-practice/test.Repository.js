@@ -18,7 +18,6 @@ async function findQuestionsByTestSetId(testSetId) {
   });
 }
 
-
 async function createAttempt({ user_id, test_set_id, started_at }) {
   return UserTestAttempt.create({
     user_id,

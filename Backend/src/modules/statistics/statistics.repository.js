@@ -1,9 +1,3 @@
-// src/modules/statistics/statistics.repository.js
-// Lớp DUY NHẤT trong module statistics được phép truy vấn trực tiếp Sequelize model.
-// Module statistics KHÔNG sở hữu bảng nào — chỉ đọc read-only từ bảng của module khác
-// (streaks, review_logs, user_vocabulary_cards, reading_attempts, listening_dictation_attempts...)
-// để tổng hợp số liệu, tuyệt đối không insert/update/delete lên các bảng này.
-
 const { Op, fn, col } = require('sequelize');
 const {
   Streak,
@@ -31,8 +25,6 @@ async function countTotalReviews(userId) {
   return ReviewLog.count({ where: { user_id: userId } });
 }
 
-// "Đã học" = thẻ từ vựng đã được ôn tập ít nhất 1 lần (repetitions > 0),
-// phân biệt với thẻ mới chưa từng được ôn.
 async function countWordsLearned(userId) {
   return UserVocabularyCard.count({
     where: { user_id: userId, repetitions: { [Op.gt]: 0 } }
@@ -85,7 +77,6 @@ async function findListeningAttemptsBetween(userId, startDate, endDate) {
   });
 }
 
-// Tìm ngày hoạt động sớm nhất của user trên cả 3 nguồn (dùng cho range=all)
 async function findEarliestActivityDate(userId) {
   const [firstReview, firstReading, firstListening] = await Promise.all([
     ReviewLog.findOne({

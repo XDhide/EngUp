@@ -7,13 +7,12 @@ const {
 } = require('./reading.dtos');
 
 const AI_GENERATION_URL = process.env.AI_GENERATION_URL;
-const AI_GENERATION_TIMEOUT_MS = 15000; 
+const AI_GENERATION_TIMEOUT_MS = 15000;
 function assertAdmin(requester) {
   if (!requester || requester.role !== 'admin') {
     throw new AppError('Chỉ admin mới có quyền thao tác này', 403);
   }
 }
-
 
 async function getArticles({ difficulty, topic }) {
   const articles = await readingRepository.findApprovedArticles({ difficulty, topic });
@@ -27,8 +26,6 @@ async function getArticleDetail(articleId) {
   }
   return toArticleDetailDto(article);
 }
-
-
 
 async function submitArticle(userId, articleId, answers) {
   const article = await readingRepository.findArticleWithQuestionsById(articleId);
@@ -66,8 +63,6 @@ async function submitArticle(userId, articleId, answers) {
   return { score, correct_count: correctCount, total_count: totalCount, review };
 }
 
-
-
 async function callAiGeneration(topic, difficulty) {
   if (!AI_GENERATION_URL) {
     throw new AppError('Chưa cấu hình AI_GENERATION_URL để sinh bài đọc', 502);
@@ -89,7 +84,7 @@ async function callAiGeneration(topic, difficulty) {
     }
 
     const data = await res.json();
-    
+
     if (!data.title || !data.content || !Array.isArray(data.questions) || data.questions.length === 0) {
       throw new AppError('Kết quả AI trả về không hợp lệ', 502);
     }

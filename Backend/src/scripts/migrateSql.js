@@ -1,4 +1,3 @@
-// src/scripts/migrateSql.js
 require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
@@ -43,4 +42,3 @@ const runSqlMigration = async () => {
 };
 
 runSqlMigration();
-

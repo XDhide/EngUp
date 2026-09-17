@@ -48,7 +48,7 @@ function validateListSubmissionsQuery(req, res, next) {
   }
 
   if (errors.length > 0) return next(new AppError(errors.join('; '), 400));
-  next(); 
+  next();
 }
 
 module.exports = {

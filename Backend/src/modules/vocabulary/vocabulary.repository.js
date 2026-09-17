@@ -8,12 +8,9 @@ const {
   sequelize
 } = require('../../common/models');
 
-
-
 async function findAllTopics() {
   return VocabularyTopic.findAll({ order: [['name', 'ASC']] });
 }
-
 
 async function findWords({ topic_id, difficulty, limit = 20, offset = 0 } = {}) {
   const where = {};
@@ -47,7 +44,6 @@ async function deleteWord(word) {
   return word.destroy();
 }
 
-
 async function findUserById(userId) {
   return User.findByPk(userId);
 }
@@ -56,7 +52,6 @@ async function updateDailyNewWordLimit(userId, limit) {
   await User.update({ daily_new_word_limit: limit }, { where: { id: userId } });
   return User.findByPk(userId);
 }
-
 
 async function findNewWordsForUser(userId, limit) {
   return VocabularyWord.findAll({

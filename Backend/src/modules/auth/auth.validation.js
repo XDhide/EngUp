@@ -1,7 +1,3 @@
-// src/modules/auth/auth.validation.js
-// Validation layer: middleware kiểm tra dữ liệu đầu vào TRƯỚC khi vào controller/service.
-// Không dùng thư viện ngoài (project chưa cài joi/express-validator) — viết tay cho nhẹ.
-
 const AppError = require('../../common/utils/AppError');
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -28,7 +24,6 @@ function validateRegister(req, res, next) {
     return next(new AppError(errors.join('; '), 400));
   }
 
-  // Chuẩn hoá dữ liệu trước khi đưa xuống service
   req.body.email = email.trim().toLowerCase();
   req.body.full_name = full_name.trim();
 
@@ -56,7 +51,6 @@ function validateLogin(req, res, next) {
   next();
 }
 
-// ---- Refresh Token ----
 function validateRefreshToken(req, res, next) {
   const { refresh_token } = req.body || {};
 
@@ -67,7 +61,6 @@ function validateRefreshToken(req, res, next) {
   next();
 }
 
-// ---- PUT /api/auth/me ----
 function validateUpdateProfile(req, res, next) {
   const body = req.body || {};
   const errors = [];
@@ -101,7 +94,6 @@ function validateUpdateProfile(req, res, next) {
   next();
 }
 
-// ---- POST /api/auth/placement-test/submit ----
 function validateSubmitPlacementTest(req, res, next) {
   const { answers } = req.body || {};
   const errors = [];

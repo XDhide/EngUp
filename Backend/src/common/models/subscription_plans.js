@@ -1,4 +1,3 @@
-// src/common/models/subscription_plans.js
 const { DataTypes } = require('sequelize');
 
 module.exports = (sequelize) => {
@@ -41,4 +40,3 @@ module.exports = (sequelize) => {
 
   return SubscriptionPlan;
 };
-

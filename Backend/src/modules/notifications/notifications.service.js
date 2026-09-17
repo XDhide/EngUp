@@ -2,7 +2,6 @@ const notificationsRepository = require('./notifications.Repository');
 const AppError = require('../../common/utils/AppError');
 const { toSettingsDto, toNotificationDto } = require('./notifications.dtos');
 
-
 async function getSettings(userId) {
   const settings = await notificationsRepository.findSettingsByUserId(userId);
   if (!settings) {
@@ -20,8 +19,6 @@ async function updateSettings(userId, { daily_reminder_time, review_reminder_ena
   const settings = await notificationsRepository.upsertSettings(userId, fieldsToUpdate);
   return toSettingsDto(settings);
 }
-
-
 
 async function getNotifications(userId, { is_read }) {
   let parsedIsRead;

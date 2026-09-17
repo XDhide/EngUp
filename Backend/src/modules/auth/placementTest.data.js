@@ -1,7 +1,3 @@
-// src/modules/auth/placementTest.data.js
-// Ngân hàng câu hỏi bài test đầu vào (placement test).
-// Dữ liệu tĩnh, thuộc sở hữu module auth — không truy vấn DB module khác.
-
 const PLACEMENT_TEST_QUESTIONS = [
   { id: 1, level: 'A1', question_text: "She ___ to school every day.", options: [{ id: 'a', text: 'go' }, { id: 'b', text: 'goes' }, { id: 'c', text: 'going' }, { id: 'd', text: 'gone' }], correct_option_id: 'b' },
   { id: 2, level: 'A1', question_text: "This is ___ apple.", options: [{ id: 'a', text: 'a' }, { id: 'b', text: 'an' }, { id: 'c', text: 'the' }, { id: 'd', text: 'no article' }], correct_option_id: 'b' },
@@ -17,7 +13,6 @@ const PLACEMENT_TEST_QUESTIONS = [
   { id: 12, level: 'C2', question_text: "Choose the correct sentence.", options: [{ id: 'a', text: 'Had I known earlier, I would have acted differently.' }, { id: 'b', text: 'If I had knew earlier, I would act differently.' }, { id: 'c', text: 'Had I know earlier, I would have act differently.' }, { id: 'd', text: 'I had known earlier, I would have acted differently.' }], correct_option_id: 'a' }
 ];
 
-// Ngưỡng % số câu đúng -> level đề xuất
 const LEVEL_THRESHOLDS = [
   { minPercent: 86, level: 'C2' },
   { minPercent: 71, level: 'C1' },

@@ -1,7 +1,3 @@
-// src/modules/auth/auth.controller.js
-// Controller layer: chỉ nhận request -> gọi service -> trả response.
-// Không chứa logic nghiệp vụ, không đụng tới model/repository trực tiếp.
-
 const authService = require('./auth.service');
 const { successResponse } = require('../../common/utils/response');
 
@@ -37,7 +33,6 @@ async function login(req, res, next) {
   }
 }
 
-// POST /api/auth/refresh
 async function refresh(req, res, next) {
   try {
     const { refresh_token } = req.body;
@@ -54,7 +49,6 @@ async function refresh(req, res, next) {
   }
 }
 
-// POST /api/auth/logout
 async function logout(req, res, next) {
   try {
     const { refresh_token } = req.body;
@@ -71,7 +65,6 @@ async function logout(req, res, next) {
   }
 }
 
-// GET /api/auth/me
 async function getMe(req, res, next) {
   try {
     const data = await authService.getProfile(req.user.id);
@@ -86,7 +79,6 @@ async function getMe(req, res, next) {
   }
 }
 
-// PUT /api/auth/me
 async function updateMe(req, res, next) {
   try {
     const data = await authService.updateProfile(req.user.id, req.body);
@@ -101,7 +93,6 @@ async function updateMe(req, res, next) {
   }
 }
 
-// GET /api/auth/placement-test/questions
 async function getPlacementTestQuestions(req, res, next) {
   try {
     const data = authService.getPlacementTestQuestions();
@@ -116,7 +107,6 @@ async function getPlacementTestQuestions(req, res, next) {
   }
 }
 
-// POST /api/auth/placement-test/submit
 async function submitPlacementTest(req, res, next) {
   try {
     const { answers } = req.body;

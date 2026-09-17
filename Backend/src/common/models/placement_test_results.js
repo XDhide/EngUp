@@ -1,4 +1,3 @@
-// src/common/models/placement_test_results.js
 const { DataTypes } = require('sequelize');
 
 module.exports = (sequelize) => {
@@ -37,4 +36,3 @@ module.exports = (sequelize) => {
 
   return PlacementTestResult;
 };
-

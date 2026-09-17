@@ -1,15 +1,12 @@
-// src/modules/statistics/statistics.service.js
 const statisticsRepository = require('./statistics.repository');
 const { toOverviewDto, toProgressDto } = require('./statistics.dtos');
 
-// DB hiện không lưu "thời lượng học" trực tiếp cho reading/listening, nên minutes_studied
-// là số liệu ƯỚC LƯỢNG dựa trên tốc độ đọc/nghe trung bình và độ dài nội dung liên quan.
-const READING_WORDS_PER_MINUTE = 200; // tốc độ đọc hiểu trung bình
-const LISTENING_WORDS_PER_MINUTE = 130; // nghe + gõ lại chính tả chậm hơn đọc thông thường
-const FALLBACK_SECONDS_PER_REVIEW = 8; // dùng khi response_time_ms không được client gửi lên (field optional)
+const READING_WORDS_PER_MINUTE = 200;
+const LISTENING_WORDS_PER_MINUTE = 130;
+const FALLBACK_SECONDS_PER_REVIEW = 8;
 
 const RANGE_TO_DAYS = { '7d': 7, '30d': 30 };
-const MAX_ALL_RANGE_DAYS = 365; // giới hạn an toàn cho range=all để tránh timeline quá lớn
+const MAX_ALL_RANGE_DAYS = 365;
 
 function countWords(text) {
   if (!text) return 0;
@@ -83,7 +80,6 @@ async function getProgress(userId, range) {
     statisticsRepository.findListeningAttemptsBetween(userId, startDate, endDate)
   ]);
 
-  // Khởi tạo sẵn từng ngày trong khoảng để ngày không có hoạt động vẫn xuất hiện với giá trị 0
   const buckets = new Map();
   for (let cursor = startDateStr; cursor <= endDateStr; cursor = addDaysToDateString(cursor, 1)) {
     buckets.set(cursor, { words_reviewed: 0, study_seconds: 0 });

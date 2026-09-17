@@ -1,4 +1,3 @@
-// src/common/models/reading_articles.js
 const { DataTypes } = require('sequelize');
 
 module.exports = (sequelize) => {
@@ -75,4 +74,3 @@ module.exports = (sequelize) => {
 
   return ReadingArticle;
 };
-

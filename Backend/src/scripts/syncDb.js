@@ -1,4 +1,3 @@
-// src/scripts/syncDb.js
 require('dotenv').config();
 const db = require('../common/models');
 
@@ -23,4 +22,3 @@ const sync = async () => {
 };
 
 sync();
-

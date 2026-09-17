@@ -1,5 +1,3 @@
-// src/modules/statistics/statistics.dtos.js
-
 function toOverviewDto({
   totalWordsLearned,
   totalReviews,

@@ -1,6 +1,6 @@
 const AppError = require('../../common/utils/AppError');
 
-const TIME_REGEX = /^([01]\d|2[0-3]):([0-5]\d)$/; 
+const TIME_REGEX = /^([01]\d|2[0-3]):([0-5]\d)$/;
 function isPositiveInt(value) {
   const n = Number(value);
   return Number.isInteger(n) && n > 0;

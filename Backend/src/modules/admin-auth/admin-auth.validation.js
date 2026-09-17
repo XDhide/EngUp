@@ -1,7 +1,3 @@
-// src/modules/admin-auth/admin-auth.validation.js
-// Validation layer: kiểm tra dữ liệu đầu vào trước khi vào controller/service.
-// Viết tay, không dùng thư viện ngoài, giống convention của module Auth.
-
 const AppError = require('../../common/utils/AppError');
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;

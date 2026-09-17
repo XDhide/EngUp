@@ -1,4 +1,3 @@
-// src/common/models/user_vocabulary_cards.js
 const { DataTypes } = require('sequelize');
 
 module.exports = (sequelize) => {
@@ -86,4 +85,3 @@ module.exports = (sequelize) => {
 
   return UserVocabularyCard;
 };
-

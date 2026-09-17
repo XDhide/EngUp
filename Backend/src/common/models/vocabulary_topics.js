@@ -1,4 +1,3 @@
-// src/common/models/vocabulary_topics.js
 const { DataTypes } = require('sequelize');
 
 module.exports = (sequelize) => {
@@ -37,4 +36,3 @@ module.exports = (sequelize) => {
 
   return VocabularyTopic;
 };
-

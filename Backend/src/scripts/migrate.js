@@ -1,13 +1,3 @@
-// src/scripts/migrate.js
-// Runner nhẹ cho migration Sequelize (project chưa cài sequelize-cli).
-// Đọc các file trong src/migrations/*.js, chạy tuần tự các migration chưa
-// được áp dụng, và ghi lại lịch sử vào bảng "SequelizeMeta" (đặt tên giống
-// convention của sequelize-cli để có thể chuyển sang dùng cli sau này nếu cần).
-//
-// Sử dụng:
-//   node src/scripts/migrate.js up     (mặc định)
-//   node src/scripts/migrate.js down   (rollback migration gần nhất)
-
 require('dotenv').config();
 const fs = require('fs');
 const path = require('path');

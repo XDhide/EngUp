@@ -7,7 +7,6 @@ const {
   toSubmissionListItemDto
 } = require('./writing.dtos');
 
-// Gọi thẳng Gemini API (Google Generative Language API) bằng API key.
 const GEMINI_API_KEY = process.env.WRITING_LLM_API_KEY;
 const GEMINI_MODEL = process.env.WRITING_LLM_MODEL || 'gemini-2.0-flash';
 const GEMINI_API_BASE_URL = process.env.WRITING_LLM_API_URL || 'https://generativelanguage.googleapis.com/v1beta';

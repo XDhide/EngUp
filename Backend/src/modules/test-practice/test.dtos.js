@@ -7,7 +7,6 @@ function toTestSetListItemDto(testSet) {
   };
 }
 
-// Ẩn correct_answer khi trả câu hỏi cho học viên làm bài
 function toQuestionForAttemptDto(question) {
   return {
     id: question.id,

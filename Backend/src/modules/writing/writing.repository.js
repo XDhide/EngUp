@@ -42,7 +42,6 @@ async function findSubmissionsForUser(userId, { limit = 20, offset = 0 } = {}) {
   return { submissions: rows, total: count };
 }
 
-// Đếm số bài đã được chấm AI trong ngày hôm nay (theo giờ server) của 1 user — phục vụ checkWritingQuota.
 async function countTodaySubmissions(userId) {
   const startOfDay = new Date();
   startOfDay.setHours(0, 0, 0, 0);

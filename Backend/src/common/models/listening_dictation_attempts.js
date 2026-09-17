@@ -1,4 +1,3 @@
-// src/common/models/listening_dictation_attempts.js
 const { DataTypes } = require('sequelize');
 
 module.exports = (sequelize) => {
@@ -54,4 +53,3 @@ module.exports = (sequelize) => {
 
   return ListeningDictationAttempt;
 };
-

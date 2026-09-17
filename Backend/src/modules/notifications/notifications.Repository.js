@@ -21,7 +21,7 @@ async function findNotifications(userId, { is_read } = {}) {
   return Notification.findAll({
     where,
     order: [['created_at', 'DESC']],
-    limit: 50 
+    limit: 50
   });
 }
 
@@ -38,12 +38,9 @@ async function createNotification({ user_id, title, body, type }) {
   return Notification.create({ user_id, title, body, type });
 }
 
-
 async function findTemplateByType(type) {
   return NotificationTemplate.findOne({ where: { type } });
 }
-
-
 
 async function findSettingsForReminderJob() {
   return NotificationSetting.findAll({

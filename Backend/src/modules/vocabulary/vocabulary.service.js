@@ -10,7 +10,6 @@ const {
 const ML_SERVICE_URL = process.env.ML_SERVICE_URL;
 const ML_SERVICE_TIMEOUT_MS = 2500;
 
-
 async function getTopics() {
   const topics = await vocabularyRepository.findAllTopics();
   return { topics: topics.map(toTopicDto) };
@@ -29,7 +28,6 @@ async function getWords({ topic_id, difficulty, limit, offset }) {
 
   return { words: words.map(toWordListItemDto), total };
 }
-
 
 function assertAdmin(requester) {
   if (!requester || requester.role !== 'admin') {
@@ -88,7 +86,7 @@ function computeSm2Update({ ease_factor, interval_days, repetitions }, result) {
   switch (result) {
     case 'again':
       newRepetitions = 0;
-      newInterval = 0; 
+      newInterval = 0;
       newEase = Math.max(1.3, newEase - 0.2);
       break;
     case 'hard':
@@ -119,7 +117,7 @@ function computeSm2Update({ ease_factor, interval_days, repetitions }, result) {
     interval_days: newInterval,
     repetitions: newRepetitions,
     next_review_at: nextReviewAt,
-    recall_probability: null 
+    recall_probability: null
   };
 }
 
@@ -141,7 +139,7 @@ async function tryPredict(card) {
     if (typeof data.recall_probability !== 'number') return null;
     return data;
   } catch (err) {
-    return null; 
+    return null;
   } finally {
     clearTimeout(timeout);
   }

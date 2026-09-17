@@ -1,4 +1,3 @@
-// src/common/models/user_test_attempts.js
 const { DataTypes } = require('sequelize');
 
 module.exports = (sequelize) => {
@@ -69,4 +68,3 @@ module.exports = (sequelize) => {
 
   return UserTestAttempt;
 };
-

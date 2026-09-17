@@ -1,4 +1,3 @@
-// src/config/db.js
 require('dotenv').config();
 const { Sequelize } = require('sequelize');
 
@@ -27,11 +26,11 @@ const sequelize = new Sequelize(
 async function testConnection() {
   try {
     await sequelize.authenticate();
-    console.log('✅ Kết nối MySQL qua Sequelize thành công!');
+    console.log('Kết nối MySQL qua Sequelize thành công!');
   } catch (error) {
-    console.error('❌ Kết nối MySQL thất bại:', error.message);
+    console.error('Kết nối MySQL thất bại:', error.message);
     throw error;
   }
 }
 
-module.exports = { sequelize, testConnection };
+module.exports = { sequelize, testConnection };

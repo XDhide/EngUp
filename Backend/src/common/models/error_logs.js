@@ -1,4 +1,3 @@
-// src/common/models/error_logs.js
 const { DataTypes } = require('sequelize');
 
 module.exports = (sequelize) => {
@@ -40,4 +39,3 @@ module.exports = (sequelize) => {
 
   return ErrorLog;
 };
-

@@ -1,4 +1,3 @@
-// src/common/models/notification_templates.js
 const { DataTypes } = require('sequelize');
 
 module.exports = (sequelize) => {
@@ -34,4 +33,3 @@ module.exports = (sequelize) => {
 
   return NotificationTemplate;
 };
-

@@ -1,9 +1,5 @@
 const AppError = require('../utils/AppError');
 
-// Tách từ writing.service.js (bản gốc do đồng đội viết) để dùng chung cho
-// mọi module cần chấm bài bằng AI (Writing, Test Practice Writing/Speaking...).
-// Vẫn dùng chung env var WRITING_LLM_* vì đây là "LLM engine của Module Writing"
-// theo đúng mô tả nhiệm vụ Test Practice — không tạo bộ key riêng.
 const GEMINI_API_KEY = process.env.WRITING_LLM_API_KEY;
 const GEMINI_MODEL = process.env.WRITING_LLM_MODEL || 'gemini-2.0-flash';
 const GEMINI_API_BASE_URL = process.env.WRITING_LLM_API_URL || 'https://generativelanguage.googleapis.com/v1beta';
@@ -13,12 +9,6 @@ function buildGeminiUrl() {
   return `${GEMINI_API_BASE_URL}/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
 }
 
-/**
- * Gọi Gemini với 1 system prompt + 1 user prompt, kỳ vọng model trả JSON thuần
- * (responseMimeType: application/json). Trả về object đã JSON.parse.
- * Caller tự validate cấu trúc theo rubric riêng của mình — Writing và Test Practice
- * kỳ vọng 2 shape JSON khác nhau, nên hàm này KHÔNG validate field cụ thể.
- */
 async function callLlmForJson({ systemPrompt, userPrompt, timeoutMs = DEFAULT_TIMEOUT_MS }) {
   if (!GEMINI_API_KEY) {
     throw new AppError('Chưa cấu hình WRITING_LLM_API_KEY để chấm bài bằng AI', 502);

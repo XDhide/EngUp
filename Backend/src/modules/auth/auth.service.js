@@ -1,7 +1,3 @@
-// src/modules/auth/auth.service.js
-// Service layer: chứa toàn bộ logic nghiệp vụ. Luôn lấy/ghi dữ liệu thông qua
-// auth.Repository.js, không import model trực tiếp ở đây.
-
 const { hashPassword, comparePassword } = require('../../common/utils/password');
 const authRepository = require('./auth.Repository');
 const AppError = require('../../common/utils/AppError');
@@ -16,7 +12,6 @@ const {
 const { PLACEMENT_TEST_QUESTIONS, LEVEL_THRESHOLDS } = require('./placementTest.data');
 const { toPublicUser, toProfileUser, toPlacementTestQuestionDto } = require('./auth.dtos');
 
-// ---- Hồ sơ người dùng ----
 async function getProfile(userId) {
   const user = await authRepository.findUserById(userId);
   if (!user) {
@@ -35,7 +30,6 @@ async function updateProfile(userId, fieldsToUpdate) {
   return toProfileUser(user);
 }
 
-// Phát hành cặp access/refresh token và lưu bản ghi refresh token (đã hash) vào DB
 async function issueTokens(user) {
   const payload = { id: user.id, role: user.role };
 
@@ -70,7 +64,7 @@ async function register({ email, password, full_name }) {
 
 async function login({ email, password }) {
   const user = await authRepository.findUserByEmail(email);
-  // Không tiết lộ email có tồn tại hay không -> luôn trả cùng 1 message chung
+
   if (!user) {
     throw new AppError('Email hoặc mật khẩu không đúng', 401);
   }
@@ -92,7 +86,6 @@ async function login({ email, password }) {
   };
 }
 
-// ---- Refresh Token ----
 async function refreshAccessToken({ refresh_token }) {
   let payload;
   try {
@@ -117,7 +110,6 @@ async function refreshAccessToken({ refresh_token }) {
   return { access_token };
 }
 
-// ---- Logout ----
 async function logout({ refresh_token }) {
   const tokenRecord = await authRepository.findRefreshTokenByHash(hashToken(refresh_token));
 
@@ -129,8 +121,6 @@ async function logout({ refresh_token }) {
 
   return null;
 }
-
-// ---- Placement Test ----
 
 function getPlacementTestQuestions() {
   const questions = PLACEMENT_TEST_QUESTIONS.map(toPlacementTestQuestionDto);

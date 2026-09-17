@@ -1,11 +1,6 @@
-// src/common/middlewares/auth.middleware.js
-// Middleware xác thực JWT — chỉ module Auth sở hữu, các module khác chỉ được import và dùng,
-// không được tự verify token hay đụng vào bảng users/refresh_tokens.
-
 const { verifyAccessToken } = require('../utils/token');
 const AppError = require('../utils/AppError');
 
-// ---- authenticateJWT ----
 function authenticateJWT(req, res, next) {
   try {
     const authHeader = req.headers.authorization;

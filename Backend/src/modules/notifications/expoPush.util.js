@@ -1,8 +1,5 @@
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
 
-// Gửi 1 push notification tới 1 Expo push token. Không throw khi Expo báo lỗi
-// cho từng token riêng lẻ (vd token hết hạn) — chỉ log, để không làm chết cả job
-// khi có 1 user bị lỗi token.
 async function sendExpoPushNotification({ pushToken, title, body, data }) {
   if (!pushToken) return;
 

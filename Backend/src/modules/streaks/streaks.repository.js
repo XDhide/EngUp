@@ -1,9 +1,3 @@
-// src/modules/streaks/streaks.repository.js
-// Lớp DUY NHẤT trong module streaks được phép truy vấn trực tiếp Sequelize model.
-// - Bảng `streaks`: module này sở hữu, được phép insert/update trực tiếp.
-// - Bảng review_logs / reading_attempts / listening_dictation_attempts: chỉ đọc read-only
-//   để xác định user có hoạt động học tập trong ngày hay không, KHÔNG được sửa dữ liệu ở đây.
-
 const { fn, col, where: sqlWhere } = require('sequelize');
 const {
   Streak,
@@ -53,7 +47,6 @@ async function findDistinctUserIdsWithListeningOn(dateStr) {
   return rows.map((r) => Number(r.user_id));
 }
 
-// Gộp cả 3 nguồn hoạt động (ôn từ vựng, làm bài đọc, làm bài nghe) trong một ngày cụ thể
 async function findActiveUserIdsOnDate(dateStr) {
   const [reviewUserIds, readingUserIds, listeningUserIds] = await Promise.all([
     findDistinctUserIdsWithReviewOn(dateStr),

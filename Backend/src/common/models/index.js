@@ -1,10 +1,8 @@
-// src/common/models/index.js
 const { Sequelize } = require('sequelize');
 const { sequelize } = require('../../config/db');
 
 const db = {};
 
-// Import và khởi tạo từng model
 db.User = require('./users')(sequelize);
 db.RefreshToken = require('./refresh_tokens')(sequelize);
 db.PlacementTestResult = require('./placement_test_results')(sequelize);
@@ -45,7 +43,6 @@ db.ErrorLog = require('./error_logs')(sequelize);
 db.SubscriptionPlan = require('./subscription_plans')(sequelize);
 db.Subscription = require('./subscriptions')(sequelize);
 
-// Thiết lập các quan hệ (Associations / Foreign Keys)
 Object.keys(db).forEach((modelName) => {
   if (db[modelName] && typeof db[modelName].associate === 'function') {
     db[modelName].associate(db);
@@ -55,7 +52,6 @@ Object.keys(db).forEach((modelName) => {
 db.sequelize = sequelize;
 db.Sequelize = Sequelize;
 
-// Hàm tiện ích đồng bộ cấu trúc database với models
 db.syncDatabase = async (options = {}) => {
   try {
     await sequelize.sync(options);
@@ -67,4 +63,3 @@ db.syncDatabase = async (options = {}) => {
 };
 
 module.exports = db;
-

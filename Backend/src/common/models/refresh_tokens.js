@@ -1,4 +1,3 @@
-// src/common/models/refresh_tokens.js
 const { DataTypes } = require('sequelize');
 
 module.exports = (sequelize) => {
@@ -47,4 +46,3 @@ module.exports = (sequelize) => {
 
   return RefreshToken;
 };
-

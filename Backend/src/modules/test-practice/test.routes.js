@@ -11,7 +11,6 @@ const authenticateJWT = require('../../common/middlewares/auth.middleware');
 
 const router = express.Router();
 
-// Đặt /attempts trước /:id để tránh mọi nhầm lẫn thứ tự match dù khác độ dài path.
 router.get('/attempts', authenticateJWT, validateListAttemptsQuery, testController.getAttempts);
 router.get('/attempts/:id/result', authenticateJWT, validateIdParam, testController.getAttemptResult);
 

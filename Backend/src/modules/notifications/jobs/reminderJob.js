@@ -4,7 +4,6 @@ const { UserVocabularyCard } = require('../../../common/models');
 const notificationsRepository = require('../notifications.Repository');
 const { sendExpoPushNotification } = require('../expoPush.util');
 
-
 function roundDownToFiveMinutes(date) {
   const d = new Date(date);
   d.setMinutes(Math.floor(d.getMinutes() / 5) * 5, 0, 0);
@@ -36,7 +35,6 @@ async function buildMessage(type, vars) {
       body: interpolate(template.body_template, vars)
     };
   }
-
 
   if (type === 'review_due') {
     return {
