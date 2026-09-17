@@ -1,0 +1,750 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+TEST API TOÀN BỘ BACKEND (English Learning API)
+================================================
+
+Script này gọi tuần tự hầu hết các endpoint của backend (Express + Sequelize)
+để kiểm tra API có hoạt động đúng hay không, dùng dữ liệu được tạo bởi
+`seed/seed.js`.
+
+CÁCH DÙNG
+---------
+1. Cài thư viện cần thiết (chỉ cần "requests"):
+       pip install requests --break-system-packages
+
+2. Khởi động backend (đảm bảo đã cấu hình DB trong .env và đã `npm run db:sync`):
+       npm run start        # hoặc: npm run dev
+
+3. Seed dữ liệu mẫu (chỉ cần chạy 1 lần, có thể chạy lại an toàn):
+       node seed/seed.js
+
+4. Chạy test:
+       python test/test_api.py
+       # hoặc chỉ định base url / tài khoản khác:
+       python test/test_api.py --base-url http://localhost:5000/api
+
+KẾT QUẢ
+-------
+- In ra từng test: PASS / FAIL / SKIP kèm mã trạng thái HTTP và ghi chú.
+- Một số API phụ thuộc dịch vụ ngoài (AI chấm bài viết / sinh bài đọc bằng
+  Gemini) sẽ được đánh dấu SKIP/EXPECTED-FAIL nếu chưa cấu hình API key
+  trong .env (WRITING_LLM_API_KEY, AI_GENERATION_URL) — đây không phải lỗi
+  của code, chỉ là thiếu cấu hình bên ngoài.
+- Kết thúc script in ra bảng tổng kết số lượng PASS/FAIL/SKIP.
+"""
+
+import argparse
+import json
+import sys
+import time
+from datetime import datetime
+
+try:
+    import requests
+except ImportError:
+    print("Thiếu thư viện 'requests'. Cài đặt bằng: pip install requests --break-system-packages")
+    sys.exit(1)
+
+
+# ------------------------------------------------------------------
+# Cấu hình mặc định (khớp với dữ liệu seed trong seed/seed.js)
+# ------------------------------------------------------------------
+DEFAULT_BASE_URL = "http://localhost:5000/api"
+
+ADMIN_ACCOUNT = {"email": "admin@engup.test", "password": "Admin@123"}
+STUDENT_ACCOUNT = {"email": "student1@engup.test", "password": "Student@123"}
+
+# Tài khoản mới sẽ được đăng ký ngẫu nhiên mỗi lần chạy để test /auth/register
+RANDOM_SUFFIX = str(int(time.time()))
+NEW_ACCOUNT = {
+    "email": f"test.user.{RANDOM_SUFFIX}@engup.test",
+    "password": "NewUser@123",
+    "full_name": "Người Dùng Test"
+}
+
+
+class Colors:
+    GREEN = "\033[92m"
+    RED = "\033[91m"
+    YELLOW = "\033[93m"
+    BLUE = "\033[94m"
+    BOLD = "\033[1m"
+    END = "\033[0m"
+
+
+class ApiTester:
+    def __init__(self, base_url):
+        self.base_url = base_url.rstrip("/")
+        self.session = requests.Session()
+        self.results = []  # list of dict: name, status(PASS/FAIL/SKIP), detail
+
+        # Tokens / state được chia sẻ giữa các test
+        self.state = {}
+
+    # ---------------------------------------------------------------
+    # Helpers
+    # ---------------------------------------------------------------
+    def _url(self, path):
+        return f"{self.base_url}{path}"
+
+    def request(self, method, path, token=None, expected_status=None, **kwargs):
+        headers = kwargs.pop("headers", {})
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
+        try:
+            resp = self.session.request(method, self._url(path), headers=headers, timeout=20, **kwargs)
+        except requests.exceptions.ConnectionError:
+            return None, f"Không kết nối được tới {self._url(path)}. Backend đã chạy chưa?"
+        return resp, None
+
+    def record(self, name, status, detail=""):
+        self.results.append({"name": name, "status": status, "detail": detail})
+        color = {
+            "PASS": Colors.GREEN,
+            "FAIL": Colors.RED,
+            "SKIP": Colors.YELLOW,
+        }.get(status, "")
+        print(f"{color}[{status}]{Colors.END} {name}" + (f" — {detail}" if detail else ""))
+
+    def check(self, name, condition, resp, note=""):
+        """condition: bool. If resp is None (connection error) always FAIL."""
+        if resp is None:
+            self.record(name, "FAIL", note or "Không có phản hồi từ server")
+            return False
+        detail = f"HTTP {resp.status_code}"
+        if note:
+            detail += f" | {note}"
+        if condition:
+            self.record(name, "PASS", detail)
+            return True
+        else:
+            body_preview = self._safe_body_preview(resp)
+            self.record(name, "FAIL", detail + f" | body: {body_preview}")
+            return False
+
+    def skip(self, name, reason):
+        self.record(name, "SKIP", reason)
+
+    @staticmethod
+    def _safe_body_preview(resp):
+        try:
+            data = resp.json()
+            text = json.dumps(data, ensure_ascii=False)
+        except Exception:
+            text = resp.text
+        return (text[:200] + "...") if len(text) > 200 else text
+
+    @staticmethod
+    def _data(resp):
+        try:
+            return resp.json().get("data")
+        except Exception:
+            return None
+
+    # ---------------------------------------------------------------
+    # 1. AUTH
+    # ---------------------------------------------------------------
+    def test_auth(self):
+        print(f"\n{Colors.BOLD}=== 1. AUTH (/auth) ==={Colors.END}")
+
+        # 1.1 Register (tài khoản mới ngẫu nhiên)
+        resp, err = self.request("POST", "/auth/register", json=NEW_ACCOUNT)
+        ok = self.check(
+            "POST /auth/register (tài khoản mới)",
+            resp is not None and resp.status_code == 201,
+            resp
+        )
+
+        # 1.2 Register trùng email -> phải lỗi (400/409)
+        resp, err = self.request("POST", "/auth/register", json=NEW_ACCOUNT)
+        self.check(
+            "POST /auth/register (email trùng -> phải lỗi)",
+            resp is not None and resp.status_code >= 400,
+            resp
+        )
+
+        # 1.3 Register thiếu field -> 400
+        resp, err = self.request("POST", "/auth/register", json={"email": "bad-email"})
+        self.check(
+            "POST /auth/register (thiếu field -> 400)",
+            resp is not None and resp.status_code == 400,
+            resp
+        )
+
+        # 1.4 Login tài khoản học sinh (đã seed sẵn)
+        resp, err = self.request("POST", "/auth/login", json=STUDENT_ACCOUNT)
+        ok = self.check(
+            "POST /auth/login (student1 - đã seed)",
+            resp is not None and resp.status_code == 200 and self._data(resp) and "access_token" in self._data(resp),
+            resp,
+            "Cần chạy seed/seed.js trước nếu FAIL"
+        )
+        if ok:
+            data = self._data(resp)
+            self.state["student_access_token"] = data["access_token"]
+            self.state["student_refresh_token"] = data["refresh_token"]
+            self.state["student_id"] = data["user"]["id"]
+
+        # 1.5 Login sai mật khẩu -> 401
+        resp, err = self.request("POST", "/auth/login", json={"email": STUDENT_ACCOUNT["email"], "password": "wrong"})
+        self.check(
+            "POST /auth/login (sai mật khẩu -> 401)",
+            resp is not None and resp.status_code == 401,
+            resp
+        )
+
+        # 1.6 Login admin
+        resp, err = self.request("POST", "/auth/login", json=ADMIN_ACCOUNT)
+        ok = self.check(
+            "POST /auth/login (admin - đã seed)",
+            resp is not None and resp.status_code == 200 and self._data(resp) and "access_token" in self._data(resp),
+            resp,
+            "Cần chạy seed/seed.js trước nếu FAIL"
+        )
+        if ok:
+            self.state["admin_access_token"] = self._data(resp)["access_token"]
+
+        # 1.7 GET /auth/me (cần token)
+        token = self.state.get("student_access_token")
+        if token:
+            resp, err = self.request("GET", "/auth/me", token=token)
+            self.check("GET /auth/me (có token)", resp is not None and resp.status_code == 200, resp)
+        else:
+            self.skip("GET /auth/me", "Không có token student (login thất bại ở bước trước)")
+
+        # 1.8 GET /auth/me không có token -> 401
+        resp, err = self.request("GET", "/auth/me")
+        self.check("GET /auth/me (không token -> 401)", resp is not None and resp.status_code == 401, resp)
+
+        # 1.9 PUT /auth/me cập nhật hồ sơ
+        if token:
+            resp, err = self.request(
+                "PUT", "/auth/me", token=token,
+                json={"learning_goal": "Luyện phản xạ giao tiếp", "daily_target_minutes": 25}
+            )
+            self.check("PUT /auth/me (cập nhật hồ sơ)", resp is not None and resp.status_code == 200, resp)
+
+            # field không hợp lệ
+            resp, err = self.request("PUT", "/auth/me", token=token, json={"unknown_field": 1})
+            self.check("PUT /auth/me (field lạ -> 400)", resp is not None and resp.status_code == 400, resp)
+        else:
+            self.skip("PUT /auth/me", "Không có token")
+
+        # 1.10 GET placement test questions (public, cần token theo route? kiểm tra không cần auth)
+        resp, err = self.request("GET", "/auth/placement-test/questions")
+        ok = self.check("GET /auth/placement-test/questions", resp is not None and resp.status_code == 200, resp)
+        placement_questions = self._data(resp) if ok else None
+
+        # 1.11 Submit placement test
+        if token and placement_questions:
+            questions = placement_questions.get("questions", placement_questions) \
+                if isinstance(placement_questions, dict) else placement_questions
+            answers = []
+            try:
+                for q in questions[:5]:
+                    answers.append({"question_id": q["id"], "answer": q["options"][0]["id"]})
+            except Exception:
+                answers = [{"question_id": 1, "answer": "b"}]
+            resp, err = self.request(
+                "POST", "/auth/placement-test/submit", token=token, json={"answers": answers}
+            )
+            self.check("POST /auth/placement-test/submit", resp is not None and resp.status_code == 200, resp)
+        else:
+            self.skip("POST /auth/placement-test/submit", "Thiếu token hoặc danh sách câu hỏi")
+
+        # 1.12 Refresh token
+        rtoken = self.state.get("student_refresh_token")
+        if rtoken:
+            resp, err = self.request("POST", "/auth/refresh", json={"refresh_token": rtoken})
+            self.check("POST /auth/refresh", resp is not None and resp.status_code == 200, resp)
+        else:
+            self.skip("POST /auth/refresh", "Không có refresh token")
+
+        # 1.13 Logout (dùng refresh token cũ, kèm access token còn hạn)
+        if token and rtoken:
+            resp, err = self.request("POST", "/auth/logout", token=token, json={"refresh_token": rtoken})
+            self.check("POST /auth/logout", resp is not None and resp.status_code == 200, resp)
+        else:
+            self.skip("POST /auth/logout", "Thiếu token")
+
+    # ---------------------------------------------------------------
+    # 2. ADMIN AUTH
+    # ---------------------------------------------------------------
+    def test_admin_auth(self):
+        print(f"\n{Colors.BOLD}=== 2. ADMIN AUTH (/admin/auth) ==={Colors.END}")
+
+        resp, err = self.request("POST", "/admin/auth/login", json=ADMIN_ACCOUNT)
+        self.check("POST /admin/auth/login (admin hợp lệ)", resp is not None and resp.status_code == 200, resp)
+
+        # Học sinh thường đăng nhập trang admin -> phải bị từ chối 403
+        resp, err = self.request("POST", "/admin/auth/login", json=STUDENT_ACCOUNT)
+        self.check(
+            "POST /admin/auth/login (tài khoản student -> 403)",
+            resp is not None and resp.status_code == 403,
+            resp
+        )
+
+    # ---------------------------------------------------------------
+    # 3. VOCABULARY + REVIEW
+    # ---------------------------------------------------------------
+    def test_vocabulary(self):
+        print(f"\n{Colors.BOLD}=== 3. VOCABULARY (/vocabulary, /review) ==={Colors.END}")
+        token = self.state.get("student_access_token")
+        admin_token = self.state.get("admin_access_token")
+        if not token:
+            self.skip("Vocabulary tests", "Không có student token")
+            return
+
+        # 3.1 GET topics
+        resp, err = self.request("GET", "/vocabulary/topics", token=token)
+        self.check("GET /vocabulary/topics", resp is not None and resp.status_code == 200, resp)
+
+        # 3.2 GET words
+        resp, err = self.request("GET", "/vocabulary/words", token=token)
+        ok = self.check("GET /vocabulary/words", resp is not None and resp.status_code == 200, resp)
+        words = self._data(resp) if ok else None
+
+        # 3.3 Student tạo từ mới -> phải bị từ chối (chỉ admin)
+        resp, err = self.request(
+            "POST", "/vocabulary/words", token=token,
+            json={"word": "unauthorized-word", "meaning": "không được phép"}
+        )
+        self.check(
+            "POST /vocabulary/words (student -> 403 vì chỉ admin)",
+            resp is not None and resp.status_code == 403,
+            resp
+        )
+
+        # 3.4 Admin tạo từ mới -> 201
+        new_word_id = None
+        if admin_token:
+            resp, err = self.request(
+                "POST", "/vocabulary/words", token=admin_token,
+                json={
+                    "word": f"testword{RANDOM_SUFFIX}",
+                    "meaning": "từ kiểm thử",
+                    "example_sentence": "This is a test word.",
+                    "difficulty": "A1"
+                }
+            )
+            ok = self.check("POST /vocabulary/words (admin -> 201)", resp is not None and resp.status_code == 201, resp)
+            if ok:
+                new_word_id = self._data(resp).get("id") if isinstance(self._data(resp), dict) else None
+        else:
+            self.skip("POST /vocabulary/words (admin)", "Không có admin token")
+
+        # 3.5 Admin sửa từ vừa tạo
+        if admin_token and new_word_id:
+            resp, err = self.request(
+                "PUT", f"/vocabulary/words/{new_word_id}", token=admin_token,
+                json={"meaning": "từ kiểm thử (đã sửa)"}
+            )
+            self.check("PUT /vocabulary/words/:id (admin)", resp is not None and resp.status_code == 200, resp)
+        else:
+            self.skip("PUT /vocabulary/words/:id", "Không có admin token hoặc word_id")
+
+        # 3.6 GET new-words trong ngày
+        resp, err = self.request("GET", "/vocabulary/new-words", token=token)
+        self.check("GET /vocabulary/new-words", resp is not None and resp.status_code == 200, resp)
+
+        # 3.7 Cập nhật giới hạn từ mới/ngày
+        resp, err = self.request(
+            "PUT", "/vocabulary/daily-new-word-limit", token=token, json={"limit": 15}
+        )
+        self.check("PUT /vocabulary/daily-new-word-limit", resp is not None and resp.status_code == 200, resp)
+
+        # 3.7b limit không hợp lệ -> 400
+        resp, err = self.request(
+            "PUT", "/vocabulary/daily-new-word-limit", token=token, json={"limit": -1}
+        )
+        self.check("PUT /vocabulary/daily-new-word-limit (limit âm -> 400)", resp is not None and resp.status_code == 400, resp)
+
+        # 3.8 GET /review/today
+        resp, err = self.request("GET", "/review/today", token=token)
+        ok = self.check("GET /review/today", resp is not None and resp.status_code == 200, resp)
+        review_cards = self._data(resp) if ok else None
+
+        # 3.9 POST /review/submit (nếu có card để ôn tập)
+        card_id = None
+        try:
+            cards_list = review_cards.get("cards", review_cards) if isinstance(review_cards, dict) else review_cards
+            if cards_list:
+                card_id = cards_list[0].get("card_id") or cards_list[0].get("id")
+        except Exception:
+            card_id = None
+
+        if card_id:
+            resp, err = self.request(
+                "POST", "/review/submit", token=token,
+                json={"card_id": card_id, "result": "good", "response_time_ms": 2500}
+            )
+            self.check("POST /review/submit", resp is not None and resp.status_code == 200, resp)
+        else:
+            self.skip(
+                "POST /review/submit",
+                "Chưa có thẻ ôn tập nào đến hạn hôm nay cho user này (không phải lỗi API)"
+            )
+
+        # 3.10 result không hợp lệ -> 400
+        resp, err = self.request(
+            "POST", "/review/submit", token=token, json={"card_id": 1, "result": "invalid_value"}
+        )
+        self.check("POST /review/submit (result sai -> 400)", resp is not None and resp.status_code == 400, resp)
+
+        # 3.11 Admin xoá từ đã tạo (dọn dẹp)
+        if admin_token and new_word_id:
+            resp, err = self.request("DELETE", f"/vocabulary/words/{new_word_id}", token=admin_token)
+            self.check("DELETE /vocabulary/words/:id (admin, dọn dẹp)", resp is not None and resp.status_code == 200, resp)
+
+    # ---------------------------------------------------------------
+    # 4. NOTEBOOK
+    # ---------------------------------------------------------------
+    def test_notebook(self):
+        print(f"\n{Colors.BOLD}=== 4. NOTEBOOK (/notebook) ==={Colors.END}")
+        token = self.state.get("student_access_token")
+        if not token:
+            self.skip("Notebook tests", "Không có student token")
+            return
+
+        # Lấy 1 word_id có thật từ /vocabulary/words để tạo entry hợp lệ
+        resp, err = self.request("GET", "/vocabulary/words", token=token)
+        words_data = self._data(resp) if resp is not None and resp.status_code == 200 else None
+        word_list = words_data.get("words", words_data) if isinstance(words_data, dict) else words_data
+        word_id = None
+        try:
+            word_id = word_list[0]["id"] if word_list else None
+        except Exception:
+            word_id = None
+
+        if not word_id:
+            self.skip("POST /notebook (tạo entry)", "Không tìm thấy word_id nào (chạy seed/seed.js trước)")
+            return
+
+        # 4.1 Tạo entry
+        resp, err = self.request(
+            "POST", "/notebook", token=token,
+            json={"word_id": word_id, "source_type": "vocabulary", "note": "Từ cần ôn lại", "tags": ["quan-trong"]}
+        )
+        ok = self.check("POST /notebook (tạo entry)", resp is not None and resp.status_code == 201, resp)
+        entry_id = None
+        if ok:
+            d = self._data(resp)
+            entry_id = d.get("id") if isinstance(d, dict) else None
+
+        # 4.2 Tạo entry thiếu source_type -> 400
+        resp, err = self.request("POST", "/notebook", token=token, json={"word_id": word_id})
+        self.check("POST /notebook (thiếu source_type -> 400)", resp is not None and resp.status_code == 400, resp)
+
+        # 4.3 GET list
+        resp, err = self.request("GET", "/notebook", token=token)
+        self.check("GET /notebook", resp is not None and resp.status_code == 200, resp)
+
+        # 4.4 GET list với filter source_type
+        resp, err = self.request("GET", "/notebook", token=token, params={"source_type": "vocabulary"})
+        self.check("GET /notebook?source_type=vocabulary", resp is not None and resp.status_code == 200, resp)
+
+        # 4.5 Update entry
+        if entry_id:
+            resp, err = self.request(
+                "PUT", f"/notebook/{entry_id}", token=token, json={"note": "Đã cập nhật ghi chú"}
+            )
+            self.check("PUT /notebook/:id", resp is not None and resp.status_code == 200, resp)
+        else:
+            self.skip("PUT /notebook/:id", "Không có entry_id")
+
+        # 4.6 Update entry không có field nào -> 400
+        if entry_id:
+            resp, err = self.request("PUT", f"/notebook/{entry_id}", token=token, json={})
+            self.check("PUT /notebook/:id (rỗng -> 400)", resp is not None and resp.status_code == 400, resp)
+
+        # 4.7 Delete entry (dọn dẹp)
+        if entry_id:
+            resp, err = self.request("DELETE", f"/notebook/{entry_id}", token=token)
+            self.check("DELETE /notebook/:id", resp is not None and resp.status_code == 200, resp)
+        else:
+            self.skip("DELETE /notebook/:id", "Không có entry_id")
+
+    # ---------------------------------------------------------------
+    # 5. READING
+    # ---------------------------------------------------------------
+    def test_reading(self):
+        print(f"\n{Colors.BOLD}=== 5. READING (/reading) ==={Colors.END}")
+        token = self.state.get("student_access_token")
+        if not token:
+            self.skip("Reading tests", "Không có student token")
+            return
+
+        # 5.1 GET articles
+        resp, err = self.request("GET", "/reading/articles", token=token)
+        ok = self.check("GET /reading/articles", resp is not None and resp.status_code == 200, resp)
+        articles_data = self._data(resp) if ok else None
+        articles = articles_data.get("articles", articles_data) if isinstance(articles_data, dict) else articles_data
+        article_id = None
+        try:
+            article_id = articles[0]["id"] if articles else None
+        except Exception:
+            article_id = None
+
+        # 5.2 GET articles filter difficulty không hợp lệ -> 400
+        resp, err = self.request("GET", "/reading/articles", token=token, params={"difficulty": "Z9"})
+        self.check("GET /reading/articles?difficulty=Z9 (-> 400)", resp is not None and resp.status_code == 400, resp)
+
+        if not article_id:
+            self.skip("GET /reading/articles/:id và các test liên quan", "Không có bài đọc nào (chạy seed/seed.js trước)")
+            return
+
+        # 5.3 GET article detail
+        resp, err = self.request("GET", f"/reading/articles/{article_id}", token=token)
+        ok = self.check("GET /reading/articles/:id", resp is not None and resp.status_code == 200, resp)
+        detail = self._data(resp) if ok else None
+        questions = detail.get("questions") if isinstance(detail, dict) else None
+
+        # 5.4 GET article detail với id không tồn tại -> 404
+        resp, err = self.request("GET", "/reading/articles/999999", token=token)
+        self.check("GET /reading/articles/999999 (-> 404)", resp is not None and resp.status_code == 404, resp)
+
+        # 5.5 Submit answers
+        if questions:
+            answers = [{"question_id": q["id"], "answer": q["options"][0][0]} for q in questions]
+            resp, err = self.request(
+                "POST", f"/reading/articles/{article_id}/submit", token=token, json={"answers": answers}
+            )
+            self.check("POST /reading/articles/:id/submit", resp is not None and resp.status_code == 200, resp)
+        else:
+            self.skip("POST /reading/articles/:id/submit", "Bài đọc không có câu hỏi")
+
+        # 5.6 Submit answers rỗng -> 400
+        resp, err = self.request(
+            "POST", f"/reading/articles/{article_id}/submit", token=token, json={"answers": []}
+        )
+        self.check("POST /reading/articles/:id/submit (answers rỗng -> 400)", resp is not None and resp.status_code == 400, resp)
+
+        # 5.7 Generate article bằng AI — chỉ admin mới có quyền (assertAdmin trong service)
+        admin_token = self.state.get("admin_access_token")
+
+        # Student gọi -> phải bị từ chối 403
+        resp, err = self.request(
+            "POST", "/reading/generate", token=token, json={"topic": "Environment", "difficulty": "B1"}
+        )
+        self.check(
+            "POST /reading/generate (student -> 403 vì chỉ admin)",
+            resp is not None and resp.status_code == 403,
+            resp
+        )
+
+        # Admin gọi -> cần cấu hình AI_GENERATION_URL, nếu chưa có sẽ trả 502
+        if admin_token:
+            resp, err = self.request(
+                "POST", "/reading/generate", token=admin_token, json={"topic": "Environment", "difficulty": "B1"}
+            )
+            if resp is not None and resp.status_code == 502:
+                self.skip(
+                    "POST /reading/generate (admin)",
+                    "Trả về 502 vì chưa cấu hình AI_GENERATION_URL trong .env — không phải lỗi code"
+                )
+            else:
+                self.check("POST /reading/generate (admin)", resp is not None and resp.status_code == 201, resp)
+        else:
+            self.skip("POST /reading/generate (admin)", "Không có admin token")
+
+    # ---------------------------------------------------------------
+    # 6. LISTENING
+    # ---------------------------------------------------------------
+    def test_listening(self):
+        print(f"\n{Colors.BOLD}=== 6. LISTENING (/listening) ==={Colors.END}")
+        token = self.state.get("student_access_token")
+        if not token:
+            self.skip("Listening tests", "Không có student token")
+            return
+
+        # 6.1 GET lessons
+        resp, err = self.request("GET", "/listening/lessons", token=token)
+        ok = self.check("GET /listening/lessons", resp is not None and resp.status_code == 200, resp)
+        lessons_data = self._data(resp) if ok else None
+        lessons = lessons_data.get("lessons", lessons_data) if isinstance(lessons_data, dict) else lessons_data
+        lesson_id = None
+        try:
+            lesson_id = lessons[0]["id"] if lessons else None
+        except Exception:
+            lesson_id = None
+
+        if not lesson_id:
+            self.skip("Các test còn lại của Listening", "Không có bài nghe nào (chạy seed/seed.js trước)")
+            return
+
+        # 6.2 GET lesson detail
+        resp, err = self.request("GET", f"/listening/lessons/{lesson_id}", token=token)
+        self.check("GET /listening/lessons/:id", resp is not None and resp.status_code == 200, resp)
+
+        # 6.3 GET lesson detail id không tồn tại -> 404
+        resp, err = self.request("GET", "/listening/lessons/999999", token=token)
+        self.check("GET /listening/lessons/999999 (-> 404)", resp is not None and resp.status_code == 404, resp)
+
+        # 6.4 Submit dictation
+        resp, err = self.request(
+            "POST", f"/listening/lessons/{lesson_id}/dictation", token=token,
+            json={"user_text": "Hi can I get a medium latte with oat milk please"}
+        )
+        self.check("POST /listening/lessons/:id/dictation", resp is not None and resp.status_code == 200, resp)
+
+        # 6.5 Submit dictation thiếu user_text -> 400
+        resp, err = self.request(
+            "POST", f"/listening/lessons/{lesson_id}/dictation", token=token, json={}
+        )
+        self.check("POST /listening/lessons/:id/dictation (thiếu user_text -> 400)", resp is not None and resp.status_code == 400, resp)
+
+    # ---------------------------------------------------------------
+    # 7. WRITING
+    # ---------------------------------------------------------------
+    def test_writing(self):
+        print(f"\n{Colors.BOLD}=== 7. WRITING (/writing) ==={Colors.END}")
+        token = self.state.get("student_access_token")
+        if not token:
+            self.skip("Writing tests", "Không có student token")
+            return
+
+        # 7.1 GET prompts
+        resp, err = self.request("GET", "/writing/prompts", token=token)
+        ok = self.check("GET /writing/prompts", resp is not None and resp.status_code == 200, resp)
+        prompts_data = self._data(resp) if ok else None
+        prompts = prompts_data.get("prompts", prompts_data) if isinstance(prompts_data, dict) else prompts_data
+        prompt_id = None
+        try:
+            prompt_id = prompts[0]["id"] if prompts else None
+        except Exception:
+            prompt_id = None
+
+        # 7.2 GET prompts filter type không hợp lệ -> 400
+        resp, err = self.request("GET", "/writing/prompts", token=token, params={"type": "invalid"})
+        self.check("GET /writing/prompts?type=invalid (-> 400)", resp is not None and resp.status_code == 400, resp)
+
+        if not prompt_id:
+            self.skip("Các test còn lại của Writing", "Không có đề bài viết nào (chạy seed/seed.js trước)")
+            return
+
+        # 7.3 Tạo submission (cần WRITING_LLM_API_KEY để chấm bằng AI -> có thể trả 502 nếu chưa cấu hình)
+        resp, err = self.request(
+            "POST", "/writing/submissions", token=token,
+            json={
+                "prompt_id": prompt_id,
+                "content": "My hometown is a small and peaceful town. I love it because of the fresh air "
+                           "and friendly people. Every weekend, I enjoy walking along the river with my family."
+            }
+        )
+        submission_id = None
+        if resp is not None and resp.status_code == 502:
+            self.skip(
+                "POST /writing/submissions",
+                "Trả về 502 vì chưa cấu hình WRITING_LLM_API_KEY trong .env — không phải lỗi code"
+            )
+        else:
+            ok = self.check("POST /writing/submissions", resp is not None and resp.status_code == 201, resp)
+            if ok:
+                d = self._data(resp)
+                submission_id = d.get("id") if isinstance(d, dict) else None
+
+        # 7.4 Tạo submission thiếu content -> 400
+        resp, err = self.request(
+            "POST", "/writing/submissions", token=token, json={"prompt_id": prompt_id}
+        )
+        self.check("POST /writing/submissions (thiếu content -> 400)", resp is not None and resp.status_code == 400, resp)
+
+        # 7.5 GET submissions list
+        resp, err = self.request("GET", "/writing/submissions", token=token)
+        self.check("GET /writing/submissions", resp is not None and resp.status_code == 200, resp)
+
+        # 7.6 GET submission detail (nếu có submission_id từ bước 7.3)
+        if submission_id:
+            resp, err = self.request("GET", f"/writing/submissions/{submission_id}", token=token)
+            self.check("GET /writing/submissions/:id", resp is not None and resp.status_code == 200, resp)
+        else:
+            self.skip("GET /writing/submissions/:id", "Chưa có submission nào được chấm thành công")
+
+    # ---------------------------------------------------------------
+    # 8. STATISTICS
+    # ---------------------------------------------------------------
+    def test_statistics(self):
+        print(f"\n{Colors.BOLD}=== 8. STATISTICS (/stats) ==={Colors.END}")
+        token = self.state.get("student_access_token")
+        if not token:
+            self.skip("Statistics tests", "Không có student token")
+            return
+
+        resp, err = self.request("GET", "/stats/overview", token=token)
+        self.check("GET /stats/overview", resp is not None and resp.status_code == 200, resp)
+
+        resp, err = self.request("GET", "/stats/progress", token=token)
+        self.check("GET /stats/progress (mặc định 7d)", resp is not None and resp.status_code == 200, resp)
+
+        resp, err = self.request("GET", "/stats/progress", token=token, params={"range": "30d"})
+        self.check("GET /stats/progress?range=30d", resp is not None and resp.status_code == 200, resp)
+
+        resp, err = self.request("GET", "/stats/progress", token=token, params={"range": "invalid"})
+        self.check("GET /stats/progress?range=invalid (-> 400)", resp is not None and resp.status_code == 400, resp)
+
+    # ---------------------------------------------------------------
+    # RUN ALL
+    # ---------------------------------------------------------------
+    def run_all(self):
+        print(f"{Colors.BOLD}{Colors.BLUE}Bắt đầu test API tại: {self.base_url}{Colors.END}")
+        print(f"Thời gian: {datetime.now().isoformat()}\n")
+
+        # Kiểm tra server có chạy không
+        resp, err = self.request("GET", "")
+        # Root "/" không thuộc /api, thử gọi root riêng
+        root_resp, _ = None, None
+        try:
+            root_resp = self.session.get(self.base_url.replace("/api", "") + "/", timeout=5)
+        except Exception:
+            pass
+        if root_resp is None:
+            print(f"{Colors.YELLOW}⚠️  Không thể xác nhận server đang chạy ở root '/'. Tiếp tục thử các API...{Colors.END}\n")
+
+        self.test_auth()
+        self.test_admin_auth()
+        self.test_vocabulary()
+        self.test_notebook()
+        self.test_reading()
+        self.test_listening()
+        self.test_writing()
+        self.test_statistics()
+
+        self.print_summary()
+
+    def print_summary(self):
+        total = len(self.results)
+        passed = sum(1 for r in self.results if r["status"] == "PASS")
+        failed = sum(1 for r in self.results if r["status"] == "FAIL")
+        skipped = sum(1 for r in self.results if r["status"] == "SKIP")
+
+        print(f"\n{Colors.BOLD}{'=' * 60}{Colors.END}")
+        print(f"{Colors.BOLD}TỔNG KẾT: {total} test{Colors.END}")
+        print(f"{Colors.GREEN}✅ PASS : {passed}{Colors.END}")
+        print(f"{Colors.RED}❌ FAIL : {failed}{Colors.END}")
+        print(f"{Colors.YELLOW}⏭️  SKIP : {skipped}{Colors.END}")
+        print(f"{Colors.BOLD}{'=' * 60}{Colors.END}")
+
+        if failed > 0:
+            print(f"\n{Colors.RED}{Colors.BOLD}Chi tiết các test FAIL:{Colors.END}")
+            for r in self.results:
+                if r["status"] == "FAIL":
+                    print(f"  - {r['name']}: {r['detail']}")
+
+        sys.exit(1 if failed > 0 else 0)
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Test toàn bộ API của backend English Learning App")
+    parser.add_argument(
+        "--base-url", default=DEFAULT_BASE_URL,
+        help=f"Base URL của API (mặc định: {DEFAULT_BASE_URL})"
+    )
+    args = parser.parse_args()
+
+    tester = ApiTester(args.base_url)
+    tester.run_all()
+
+
+if __name__ == "__main__":
+    main()
