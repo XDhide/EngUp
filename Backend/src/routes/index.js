@@ -12,7 +12,6 @@ router.use('/notebook', require('../modules/notebook/notebook.routes'));
 // router.use('/reading', require('../modules/reading/reading.routes'));
 router.use('/listening', require('../modules/listening/listening.routes'));
 router.use('/writing', require('../modules/writing/writing.routes'));
-const { vocabularyRouter, reviewRouter } = require('../modules/vocabulary/vocabulary.routes');
 router.use('/vocabulary', vocabularyRouter);
 router.use('/review', reviewRouter);
 router.use('/stats', require('../modules/statistics/statistics.routes'));
