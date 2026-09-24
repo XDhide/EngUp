@@ -40,6 +40,12 @@ module.exports = (sequelize) => {
       type: DataTypes.INTEGER.UNSIGNED,
       allowNull: false,
       defaultValue: 0
+    },
+    is_approved: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: true,
+      comment: 'FALSE nếu câu hỏi đang chờ admin duyệt (admin_content_approval_queue)'
     }
   }, {
     tableName: 'test_questions',
