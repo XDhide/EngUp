@@ -1317,6 +1317,388 @@ class ApiTester:
         )
 
     # ---------------------------------------------------------------
+    # 12-14. ADMIN DASHBOARD MODULE (mẫu thông báo / tổng quan / gói cước)
+    # ---------------------------------------------------------------
+    def test_admin_dashboard_module(self):
+        admin_token = self.state.get("admin_access_token")
+        student_token = self.state.get("student_access_token")
+        if not admin_token:
+            print(f"\n{Colors.BOLD}=== 12-14. ADMIN DASHBOARD MODULE ==={Colors.END}")
+            self.skip("Admin dashboard module tests", "Không có admin token")
+            return
+
+        script = "dashboard_fixtures.js"
+        tag = "[TEST-DASH]"
+        self.state["dash_created"] = {"template_ids": [], "plan_ids": []}  # để dọn audit log sau khi test xong
+
+        # Các kịch bản không cần dữ liệu thử chạy trước; baseline overview phải lấy TRƯỚC khi tạo dữ liệu thử.
+        self._notifications_basics(admin_token, student_token, tag)
+        baseline = self._dashboard_basics(admin_token, student_token)
+        self._subscriptions_basics(admin_token, student_token, tag)
+
+        fixture, ferr = self._run_fixture("create", script=script)
+        if not fixture:
+            self.skip(
+                "Kịch bản dùng dữ liệu thử (sent-history / overview / đăng ký gói)",
+                f"Không tạo được dữ liệu thử ({ferr}). Cần 'node' trong PATH, .env trỏ đúng DB, đã chạy 'npm run migrate' và 'npm run db:seed'.",
+            )
+            self._run_fixture("cleanup", dict(self.state["dash_created"]), script=script)  # dọn phần còn sót
+            return
+
+        print(f"\n{Colors.BOLD}--- 12-14 (tiếp): kịch bản dùng dữ liệu thử ---{Colors.END}")
+        try:
+            self._sent_history_scenarios(admin_token, fixture)
+            self._dashboard_scenarios(admin_token, fixture, baseline, script)
+            self._subscriptions_scenarios(admin_token, fixture)
+        finally:
+            _, cerr = self._run_fixture("cleanup", {**fixture, **self.state["dash_created"]}, script=script)
+            if cerr:
+                print(f"{Colors.YELLOW}⚠️  Không dọn được dữ liệu thử: {cerr}{Colors.END}")
+
+    def _dash_created(self, key, value):
+        """Ghi nhớ id mẫu/gói do test tạo qua API (đã xoá bằng API nhưng audit log của chúng cần được dọn)."""
+        self.state.setdefault("dash_created", {"template_ids": [], "plan_ids": []})[key].append(value)
+
+    # ----- 12. NOTIFICATIONS (không cần dữ liệu thử) -----
+    def _notifications_basics(self, admin_token, student_token, tag):
+        print(f"\n{Colors.BOLD}=== 12. ADMIN NOTIFICATIONS (/admin/notifications) ==={Colors.END}")
+        base = "/admin/notifications"
+        tpl_keys = {"id", "name", "title_template", "body_template", "type", "created_at"}
+
+        endpoints = [
+            ("POST", f"{base}/templates", {"json": {"name": "x", "title_template": "t", "body_template": "b", "type": "system"}}),
+            ("PUT", f"{base}/templates/1", {"json": {"type": "system"}}),
+            ("DELETE", f"{base}/templates/1", {}),
+            ("GET", f"{base}/sent-history", {}),
+        ]
+        for method, path, kw in endpoints:
+            resp, err = self.request(method, path, **kw)
+            self.check(f"{method} {path} (không token -> 401)", resp is not None and resp.status_code == 401, resp)
+            if student_token:
+                resp, err = self.request(method, path, token=student_token, **kw)
+                self.check(f"{method} {path} (student -> 403)", resp is not None and resp.status_code == 403, resp)
+            else:
+                self.skip(f"{method} {path} (student -> 403)", "Không có student token")
+
+        # Validation
+        good = {"name": f"{tag} welcome {RANDOM_SUFFIX}", "title_template": "Hi {{name}}", "body_template": "Body", "type": "system"}
+        bad_bodies = [
+            ({}, "body rỗng"),
+            ({**good, "name": ""}, "name rỗng"),
+            ({**good, "type": "Bad Type"}, "type sai định dạng"),
+            ({**good, "title_template": "a" * 256}, "title_template > 255 ký tự"),
+        ]
+        for body, label in bad_bodies:
+            resp, err = self.request("POST", f"{base}/templates", token=admin_token, json=body)
+            self.check(f"POST /admin/notifications/templates ({label} -> 400)", resp is not None and resp.status_code == 400, resp)
+        resp, err = self.request("PUT", f"{base}/templates/abc", token=admin_token, json={"type": "x"})
+        self.check("PUT /admin/notifications/templates/abc (id sai -> 400)", resp is not None and resp.status_code == 400, resp)
+        resp, err = self.request("PUT", f"{base}/templates/99999999", token=admin_token, json={"type": "x"})
+        self.check("PUT /admin/notifications/templates/99999999 (-> 404)", resp is not None and resp.status_code == 404, resp)
+        resp, err = self.request("DELETE", f"{base}/templates/99999999", token=admin_token)
+        self.check("DELETE /admin/notifications/templates/99999999 (-> 404)", resp is not None and resp.status_code == 404, resp)
+
+        # CRUD
+        resp, err = self.request("POST", f"{base}/templates", token=admin_token, json=good)
+        data = self._data(resp) if resp is not None else None
+        created = resp is not None and resp.status_code == 201 and isinstance(data, dict) and set(data.keys()) == tpl_keys and data.get("name") == good["name"]
+        self.check("POST /admin/notifications/templates (-> 201, data = template)", created, resp)
+        if not created:
+            return
+        tid = data["id"]
+        self._dash_created("template_ids", tid)
+
+        resp, err = self.request("POST", f"{base}/templates", token=admin_token, json=good)
+        self.check("POST /admin/notifications/templates (trùng tên -> 409)", resp is not None and resp.status_code == 409, resp)
+
+        resp, err = self.request("PUT", f"{base}/templates/{tid}", token=admin_token, json={"title_template": "Updated {{name}}", "type": "review_due"})
+        data = self._data(resp) if resp is not None else None
+        self.check(
+            "PUT /admin/notifications/templates/:id (-> 200, data = template sau khi sửa, field không gửi giữ nguyên)",
+            resp is not None and resp.status_code == 200 and isinstance(data, dict)
+            and data.get("title_template") == "Updated {{name}}" and data.get("type") == "review_due" and data.get("body_template") == "Body",
+            resp,
+        )
+        resp, err = self.request("PUT", f"{base}/templates/{tid}", token=admin_token, json={})
+        self.check("PUT /admin/notifications/templates/:id (body rỗng -> 400)", resp is not None and resp.status_code == 400, resp)
+
+        other = {**good, "name": f"{tag} other {RANDOM_SUFFIX}"}
+        resp, err = self.request("POST", f"{base}/templates", token=admin_token, json=other)
+        other_data = self._data(resp) if resp is not None else None
+        if resp is not None and resp.status_code == 201 and other_data:
+            self._dash_created("template_ids", other_data["id"])
+            resp, err = self.request("PUT", f"{base}/templates/{other_data['id']}", token=admin_token, json={"name": good["name"]})
+            self.check("PUT /admin/notifications/templates/:id (đổi sang tên đã có -> 409)", resp is not None and resp.status_code == 409, resp)
+            self.request("DELETE", f"{base}/templates/{other_data['id']}", token=admin_token)
+
+        resp, err = self.request("DELETE", f"{base}/templates/{tid}", token=admin_token)
+        data = self._data(resp) if resp is not None else None
+        self.check(
+            "DELETE /admin/notifications/templates/:id (-> 200, data = template vừa xoá)",
+            resp is not None and resp.status_code == 200 and isinstance(data, dict) and data.get("id") == tid,
+            resp,
+        )
+        resp, err = self.request("DELETE", f"{base}/templates/{tid}", token=admin_token)
+        self.check("DELETE /admin/notifications/templates/:id (xoá lại -> 404)", resp is not None and resp.status_code == 404, resp)
+
+        # sent-history validation
+        for params, label in [({"from": "abc"}, "from sai định dạng"), ({"to": "2026-02-30"}, "to là ngày không tồn tại"),
+                              ({"from": "2026-09-05", "to": "2026-09-01"}, "from > to")]:
+            resp, err = self.request("GET", f"{base}/sent-history", token=admin_token, params=params)
+            self.check(f"GET /admin/notifications/sent-history ({label} -> 400)", resp is not None and resp.status_code == 400, resp)
+        resp, err = self.request("GET", f"{base}/sent-history", token=admin_token)
+        data = self._data(resp) if resp is not None else None
+        self.check(
+            "GET /admin/notifications/sent-history (admin -> 200, data = {history: [...]})",
+            resp is not None and resp.status_code == 200 and isinstance(data, dict) and isinstance(data.get("history"), list),
+            resp,
+        )
+
+    # ----- 13. DASHBOARD (phần không cần dữ liệu thử) -----
+    def _dashboard_basics(self, admin_token, student_token):
+        print(f"\n{Colors.BOLD}=== 13. ADMIN DASHBOARD (/admin/dashboard) ==={Colors.END}")
+        path = "/admin/dashboard/overview"
+
+        resp, err = self.request("GET", path)
+        self.check("GET /admin/dashboard/overview (không token -> 401)", resp is not None and resp.status_code == 401, resp)
+        if student_token:
+            resp, err = self.request("GET", path, token=student_token)
+            self.check("GET /admin/dashboard/overview (student -> 403)", resp is not None and resp.status_code == 403, resp)
+        else:
+            self.skip("GET /admin/dashboard/overview (student -> 403)", "Không có student token")
+
+        resp, err = self.request("GET", path, token=admin_token)
+        data = self._data(resp) if resp is not None else None
+        keys_ok = isinstance(data, dict) and set(data.keys()) == {"total_users", "daily_active_users", "completion_rate", "recent_errors"}
+        self.check("GET /admin/dashboard/overview (admin -> 200, đúng 4 field)", resp is not None and resp.status_code == 200 and keys_ok, resp)
+        if not keys_ok:
+            return None
+
+        types_ok = (
+            isinstance(data["total_users"], int) and data["total_users"] >= 3
+            and isinstance(data["daily_active_users"], int) and 0 <= data["daily_active_users"] <= data["total_users"]
+            and isinstance(data["completion_rate"], (int, float)) and 0 <= data["completion_rate"] <= 100
+            and isinstance(data["recent_errors"], list) and len(data["recent_errors"]) <= 10
+        )
+        self._check_db("GET /admin/dashboard/overview — kiểu dữ liệu & miền giá trị hợp lệ", types_ok)
+        errs = data["recent_errors"]
+        shape_ok = all(set(e.keys()) == {"service", "level", "message", "created_at"} and e["level"] in ("error", "critical") for e in errs)
+        self._check_db("GET /admin/dashboard/overview — recent_errors đúng 4 field, chỉ mức error/critical", shape_ok)
+        return data
+
+    # ----- 14. SUBSCRIPTIONS (phần không cần dữ liệu thử) -----
+    def _subscriptions_basics(self, admin_token, student_token, tag):
+        print(f"\n{Colors.BOLD}=== 14. ADMIN SUBSCRIPTIONS (/admin/subscriptions) ==={Colors.END}")
+        base = "/admin/subscriptions"
+        plan_keys = {"id", "name", "price", "duration_days", "features", "created_at"}
+
+        endpoints = [
+            ("POST", f"{base}/plans", {"json": {"name": "x", "price": 1, "duration_days": 1}}),
+            ("PUT", f"{base}/plans/1", {"json": {"name": "x"}}),
+            ("DELETE", f"{base}/plans/1", {}),
+            ("GET", base, {}),
+        ]
+        for method, path, kw in endpoints:
+            resp, err = self.request(method, path, **kw)
+            self.check(f"{method} {path} (không token -> 401)", resp is not None and resp.status_code == 401, resp)
+            if student_token:
+                resp, err = self.request(method, path, token=student_token, **kw)
+                self.check(f"{method} {path} (student -> 403)", resp is not None and resp.status_code == 403, resp)
+            else:
+                self.skip(f"{method} {path} (student -> 403)", "Không có student token")
+
+        good = {"name": f"{tag} Plan {RANDOM_SUFFIX}", "price": 199000, "duration_days": 30, "features": ["no ads", "offline"]}
+        bad_bodies = [
+            ({}, "body rỗng"),
+            ({**good, "price": -1}, "price âm"),
+            ({**good, "price": "100"}, "price là chuỗi"),
+            ({**good, "price": 1.234}, "price > 2 chữ số thập phân"),
+            ({**good, "duration_days": 0}, "duration_days = 0"),
+            ({**good, "features": "text"}, "features là chuỗi"),
+        ]
+        for body, label in bad_bodies:
+            resp, err = self.request("POST", f"{base}/plans", token=admin_token, json=body)
+            self.check(f"POST /admin/subscriptions/plans ({label} -> 400)", resp is not None and resp.status_code == 400, resp)
+        resp, err = self.request("PUT", f"{base}/plans/99999999", token=admin_token, json={"name": "x"})
+        self.check("PUT /admin/subscriptions/plans/99999999 (-> 404)", resp is not None and resp.status_code == 404, resp)
+        resp, err = self.request("DELETE", f"{base}/plans/99999999", token=admin_token)
+        self.check("DELETE /admin/subscriptions/plans/99999999 (-> 404)", resp is not None and resp.status_code == 404, resp)
+
+        for params, label in [({"user_id": "abc"}, "user_id không phải số"), ({"status": "foo"}, "status sai")]:
+            resp, err = self.request("GET", base, token=admin_token, params=params)
+            self.check(f"GET /admin/subscriptions ({label} -> 400)", resp is not None and resp.status_code == 400, resp)
+        resp, err = self.request("GET", base, token=admin_token)
+        data = self._data(resp) if resp is not None else None
+        self.check(
+            "GET /admin/subscriptions (admin -> 200, data = {subscriptions: [...]})",
+            resp is not None and resp.status_code == 200 and isinstance(data, dict) and isinstance(data.get("subscriptions"), list),
+            resp,
+        )
+
+        # CRUD gói cước
+        resp, err = self.request("POST", f"{base}/plans", token=admin_token, json=good)
+        data = self._data(resp) if resp is not None else None
+        created = (
+            resp is not None and resp.status_code == 201 and isinstance(data, dict) and set(data.keys()) == plan_keys
+            and data.get("price") == 199000 and isinstance(data.get("price"), (int, float)) and data.get("features") == good["features"]
+        )
+        self.check("POST /admin/subscriptions/plans (-> 201, data = plan, price là số)", created, resp)
+        if not created:
+            return
+        pid = data["id"]
+        self._dash_created("plan_ids", pid)
+
+        resp, err = self.request("PUT", f"{base}/plans/{pid}", token=admin_token, json={"price": 249000.5, "features": None})
+        data = self._data(resp) if resp is not None else None
+        self.check(
+            "PUT /admin/subscriptions/plans/:id (-> 200, data = plan sau khi sửa)",
+            resp is not None and resp.status_code == 200 and isinstance(data, dict)
+            and data.get("price") == 249000.5 and data.get("features") is None and data.get("duration_days") == 30,
+            resp,
+        )
+        resp, err = self.request("PUT", f"{base}/plans/{pid}", token=admin_token, json={})
+        self.check("PUT /admin/subscriptions/plans/:id (body rỗng -> 400)", resp is not None and resp.status_code == 400, resp)
+
+        resp, err = self.request("DELETE", f"{base}/plans/{pid}", token=admin_token)
+        data = self._data(resp) if resp is not None else None
+        self.check(
+            "DELETE /admin/subscriptions/plans/:id (-> 200, data = plan vừa xoá)",
+            resp is not None and resp.status_code == 200 and isinstance(data, dict) and data.get("id") == pid,
+            resp,
+        )
+        resp, err = self.request("DELETE", f"{base}/plans/{pid}", token=admin_token)
+        self.check("DELETE /admin/subscriptions/plans/:id (xoá lại -> 404)", resp is not None and resp.status_code == 404, resp)
+
+    # ----- 12 (tiếp): sent-history với dữ liệu thử -----
+    def _sent_history_scenarios(self, admin_token, fixture):
+        path = "/admin/notifications/sent-history"
+        tag, suffix = fixture["tag"], fixture["suffix"]
+        window = {"from": "2001-01-01", "to": "2001-12-31"}
+
+        def ours(resp):
+            data = self._data(resp) or {}
+            rows = data.get("history", []) if isinstance(data, dict) else []
+            return [r for r in rows if tag in str(r.get("title", "")) and suffix in str(r.get("title", ""))]
+
+        resp, err = self.request("GET", path, token=admin_token, params=window)
+        rows = ours(resp) if resp is not None else []
+        self.check("GET /admin/notifications/sent-history?from&to (-> 200, có đủ 3 thông báo thử)", resp is not None and resp.status_code == 200 and len(rows) == 3, resp)
+        all_rows = (self._data(resp) or {}).get("history", []) if resp is not None else []
+        keys = {"id", "user_id", "title", "body", "type", "is_read", "created_at"}
+        self._check_db(
+            "GET /admin/notifications/sent-history — mỗi dòng đúng 7 field, user_id là số, is_read là boolean",
+            bool(all_rows) and all(set(r.keys()) == keys and isinstance(r["user_id"], int) and isinstance(r["is_read"], bool) for r in all_rows),
+        )
+        dates = [r["created_at"] for r in rows]
+        self._check_db("GET /admin/notifications/sent-history — sắp xếp mới nhất trước", dates == sorted(dates, reverse=True) and len(dates) == 3)
+        self._check_db("GET /admin/notifications/sent-history — user_id đúng người nhận", all(r["user_id"] == fixture["user_id"] for r in rows))
+
+        resp, err = self.request("GET", path, token=admin_token, params={"from": "2001-01-15", "to": "2001-01-20"})
+        n = len(ours(resp)) if resp is not None and resp.status_code == 200 else -1
+        self.check("GET /admin/notifications/sent-history?from=2001-01-15&to=2001-01-20 (bao trọn ngày cuối -> 2 thông báo)", n == 2, resp)
+
+        resp, err = self.request("GET", path, token=admin_token, params={"from": "2001-01-11T00:00:00Z", "to": "2001-01-15T09:00:00Z"})
+        n = len(ours(resp)) if resp is not None and resp.status_code == 200 else -1
+        self.check("GET /admin/notifications/sent-history (ISO 8601 -> 0 thông báo)", n == 0, resp)
+
+        resp, err = self.request("GET", path, token=admin_token, params={"from": "1990-01-01", "to": "1990-12-31"})
+        self.check(
+            "GET /admin/notifications/sent-history (khoảng không có dữ liệu -> history = [])",
+            resp is not None and resp.status_code == 200 and (self._data(resp) or {}).get("history") == [],
+            resp,
+        )
+
+    # ----- 13 (tiếp): overview đối chiếu với dữ liệu thử + SQL thuần -----
+    def _dashboard_scenarios(self, admin_token, fixture, baseline, script):
+        path = "/admin/dashboard/overview"
+        resp, err = self.request("GET", path, token=admin_token)
+        data = self._data(resp) if resp is not None else None
+        if resp is None or resp.status_code != 200 or not isinstance(data, dict):
+            self.check("GET /admin/dashboard/overview (sau khi có dữ liệu thử)", False, resp)
+            return
+
+        # Truyền lại "fixture" (chứa "now" mà create() đã dùng) để expected() đối chiếu đúng
+        # "ngày UTC" đã tạo dữ liệu thử, tránh lệch ranh giới nửa đêm UTC giữa hai lần gọi helper.
+        expected, eerr = self._run_fixture("expected", fixture, script=script)
+        if expected:
+            self.check(
+                "GET /admin/dashboard/overview — total_users / daily_active_users / completion_rate khớp SQL thuần",
+                data["total_users"] == expected["total_users"]
+                and data["daily_active_users"] == expected["daily_active_users"]
+                and abs(data["completion_rate"] - expected["completion_rate"]) < 0.005,
+                resp,
+                note=f"api={data['total_users']}/{data['daily_active_users']}/{data['completion_rate']} sql={expected['total_users']}/{expected['daily_active_users']}/{expected['completion_rate']}",
+            )
+        else:
+            self.skip("Đối chiếu overview với SQL thuần", eerr)
+
+        if baseline:
+            self.check(
+                "GET /admin/dashboard/overview — thêm 1 user và 1 lượt đọc hôm nay -> total_users +1, daily_active_users +1",
+                data["total_users"] == baseline["total_users"] + 1 and data["daily_active_users"] == baseline["daily_active_users"] + 1,
+                resp,
+                note=f"trước={baseline['total_users']}/{baseline['daily_active_users']} sau={data['total_users']}/{data['daily_active_users']}",
+            )
+        errs = data["recent_errors"]
+        self.check(
+            "GET /admin/dashboard/overview — recent_errors: log critical mới nhất đứng đầu, log info bị loại, không lộ stack_trace",
+            bool(errs) and errs[0]["message"] == fixture["critical_message"]
+            and not any(e["message"] == fixture["info_message"] for e in errs)
+            and all(set(e.keys()) == {"service", "level", "message", "created_at"} for e in errs),
+            resp,
+        )
+
+    # ----- 14 (tiếp): đăng ký gói với dữ liệu thử -----
+    def _subscriptions_scenarios(self, admin_token, fixture):
+        base = "/admin/subscriptions"
+        keys = {"id", "user_id", "plan_id", "status", "start_date", "end_date", "created_at"}
+
+        def rows_of(resp):
+            data = self._data(resp) or {}
+            return data.get("subscriptions", []) if isinstance(data, dict) else []
+
+        def ours(resp):
+            return [s for s in rows_of(resp) if s.get("plan_id") == fixture["plan_id"]]
+
+        resp, err = self.request("GET", base, token=admin_token, params={"user_id": fixture["user_id"]})
+        rows = rows_of(resp) if resp is not None else []
+        self.check(
+            "GET /admin/subscriptions?user_id= (-> 200, chỉ đăng ký của user đó)",
+            resp is not None and resp.status_code == 200 and len(rows) == 1 and rows[0]["user_id"] == fixture["user_id"] and rows[0]["status"] == "active",
+            resp,
+        )
+        self._check_db(
+            "GET /admin/subscriptions — mỗi dòng đúng 7 field, id dạng số, ngày dạng YYYY-MM-DD",
+            bool(rows) and all(set(r.keys()) == keys and isinstance(r["user_id"], int) and isinstance(r["plan_id"], int)
+                               and len(r["start_date"]) == 10 and len(r["end_date"]) == 10 for r in rows),
+        )
+
+        resp, err = self.request("GET", base, token=admin_token, params={"status": "expired"})
+        mine = ours(resp) if resp is not None else []
+        self.check(
+            "GET /admin/subscriptions?status=expired (-> chỉ đăng ký hết hạn, có bản ghi thử)",
+            resp is not None and resp.status_code == 200 and len(mine) == 1 and all(r["status"] == "expired" for r in rows_of(resp)),
+            resp,
+        )
+
+        resp, err = self.request("GET", base, token=admin_token, params={"user_id": fixture["student1_id"], "status": "expired"})
+        mine = ours(resp) if resp is not None else []
+        self.check("GET /admin/subscriptions?user_id=&status= (kết hợp -> đúng 1 bản ghi thử)", resp is not None and resp.status_code == 200 and len(mine) == 1, resp)
+
+        resp, err = self.request("GET", base, token=admin_token, params={"user_id": fixture["user_id"], "status": "cancelled"})
+        self.check(
+            "GET /admin/subscriptions (không có bản ghi khớp -> subscriptions = [])",
+            resp is not None and resp.status_code == 200 and rows_of(resp) == [],
+            resp,
+        )
+
+        # Gói đã có đăng ký không được xoá (tránh CASCADE xoá đăng ký của học viên), và phải còn nguyên.
+        resp, err = self.request("DELETE", f"{base}/plans/{fixture['plan_id']}", token=admin_token)
+        self.check("DELETE /admin/subscriptions/plans/:id (gói đã có đăng ký -> 409)", resp is not None and resp.status_code == 409, resp)
+        resp, err = self.request("GET", base, token=admin_token, params={"user_id": fixture["user_id"]})
+        self.check("Đăng ký vẫn còn nguyên sau khi xoá gói bị chặn", resp is not None and len(rows_of(resp)) == 1, resp)
+
+    # ---------------------------------------------------------------
     # RUN ALL
     # ---------------------------------------------------------------
     def run_all(self):
@@ -1345,6 +1727,7 @@ class ApiTester:
         self.test_admin_content_approval()
         self.test_admin_tests()
         self.test_admin_logs()
+        self.test_admin_dashboard_module()
 
         self.print_summary()
 

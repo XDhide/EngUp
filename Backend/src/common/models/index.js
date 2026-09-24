@@ -34,14 +34,16 @@ db.Streak = require('./streaks')(sequelize);
 
 db.NotificationSetting = require('./notification_settings')(sequelize);
 db.Notification = require('./notifications')(sequelize);
-db.NotificationTemplate = require('./notification_templates')(sequelize);
 
 db.AuditLog = require('../../modules/admin-auth/admin-auth.model')(sequelize);
 db.AdminContentApprovalQueue = require('../../modules/admin-approval/admin-approval.model')(sequelize);
 db.ErrorLog = require('../../modules/admin-logs/admin-logs.model')(sequelize);
 
-db.SubscriptionPlan = require('./subscription_plans')(sequelize);
-db.Subscription = require('./subscriptions')(sequelize);
+// notification_templates + subscription_plans + subscriptions do module admin-dashboard sở hữu.
+const adminDashboardModels = require('../../modules/admin-dashboard/admin-dashboard.model')(sequelize);
+db.NotificationTemplate = adminDashboardModels.NotificationTemplate;
+db.SubscriptionPlan = adminDashboardModels.SubscriptionPlan;
+db.Subscription = adminDashboardModels.Subscription;
 
 Object.keys(db).forEach((modelName) => {
   if (db[modelName] && typeof db[modelName].associate === 'function') {

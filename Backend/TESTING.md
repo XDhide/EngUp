@@ -13,14 +13,17 @@ backend/
     ├── helpers/
     │   ├── approval_fixtures.js      <- tạo/kiểm tra/dọn dữ liệu thử cho test duyệt nội dung
     │   ├── admin_tests_fixtures.js   <- tạo/dọn lượt làm bài thử cho test thống kê đề thi
-    │   └── logs_fixtures.js          <- tạo/dọn error log + audit log thử cho test admin-logs
+    │   ├── logs_fixtures.js          <- tạo/dọn error log + audit log thử cho test admin-logs
+    │   └── dashboard_fixtures.js     <- tạo/dọn thông báo, gói cước, lượt làm bài... thử cho test admin-dashboard
     └── unit/             <- unit test (node:test), KHÔNG cần MySQL
         ├── admin-approval.service.test.js
         ├── admin-approval.http.test.js
         ├── admin-tests.service.test.js
         ├── admin-tests.http.test.js
         ├── admin-logs.service.test.js
-        └── admin-logs.http.test.js
+        ├── admin-logs.http.test.js
+        ├── admin-dashboard.service.test.js
+        └── admin-dashboard.http.test.js
 ```
 
 ## 1. Cài đặt
@@ -42,7 +45,7 @@ npm run db:sync
 ```
 
 Nếu database đã có sẵn từ trước, chạy migration để thêm phần mới của các module
-`admin-approval` và `admin-logs` (an toàn khi chạy lại nhiều lần):
+`admin-approval`, `admin-logs` và `admin-dashboard` (an toàn khi chạy lại nhiều lần):
 
 ```bash
 npm run migrate
@@ -113,7 +116,7 @@ npm run test:unit
 ```
 
 Dùng test runner có sẵn của Node (`node:test`, cần Node 18+), không thêm dependency.
-Hiện bao phủ module `admin-approval`, `admin-tests` và `admin-logs`: logic service (404 / 409 / transaction /
+Hiện bao phủ module `admin-approval`, `admin-tests`, `admin-logs` và `admin-dashboard`: logic service (404 / 409 / transaction /
 audit log) và tầng HTTP (JWT, phân quyền admin, validation, định dạng response).
 
 ## Test module duyệt nội dung (`/api/admin/content`)
@@ -159,6 +162,32 @@ cần các tài khoản do `npm run db:seed` tạo) và **tự dọn sạch** sa
 các kịch bản lọc được đánh dấu SKIP.
 
 Nếu database cũ chưa có bảng `error_logs`, chạy `npm run migrate` (migration `create-error-logs`, an toàn khi chạy lại).
+
+## Test module dashboard / thông báo / gói cước (`/api/admin/notifications`, `/dashboard`, `/subscriptions`)
+
+Các phần `=== 12. ADMIN NOTIFICATIONS ===`, `=== 13. ADMIN DASHBOARD ===`, `=== 14. ADMIN SUBSCRIPTIONS ===`
+trong `test_api.py` (cùng thuộc module `admin-dashboard`):
+
+| Endpoint | Kiểm tra |
+|---|---|
+| `POST/PUT/DELETE /api/admin/notifications/templates[/:id]` | 201 / 200, `data` = mẫu sau thao tác (DELETE trả mẫu vừa xoá), validation (`type` chỉ gồm chữ thường/số/`_`), **409 khi trùng `name`**, 404, PUT cập nhật từng phần |
+| `GET /api/admin/notifications/sent-history[?from=&to=]` | đọc read-only từ bảng `notifications`; `from`/`to` như `admin-logs` (`to` bao trọn ngày, UTC); mỗi dòng `{id, user_id, title, body, type, is_read, created_at}`, mới nhất trước |
+| `GET /api/admin/dashboard/overview` | đúng 4 field `{total_users, daily_active_users, completion_rate, recent_errors}`; số liệu **đối chiếu với SQL thuần**; thêm 1 user + 1 lượt đọc hôm nay -> `total_users` +1, `daily_active_users` +1; `recent_errors` chỉ mức `error`/`critical`, tối đa 10, mới nhất trước |
+| `POST/PUT/DELETE /api/admin/subscriptions/plans[/:id]` | 201 / 200, `price` trả về dạng số (tối đa 2 chữ số thập phân), `features` là mảng/object/null, **409 khi xoá gói đã có đăng ký** (tránh CASCADE xoá đăng ký của học viên) |
+| `GET /api/admin/subscriptions[?user_id=&status=]` | lọc theo `user_id` và `status` (`active` \| `expired` \| `cancelled`), có thể kết hợp; mỗi dòng `{id, user_id, plan_id, status, start_date, end_date, created_at}` |
+
+Định nghĩa các số liệu trên dashboard:
+
+- `total_users`: tổng số tài khoản trong bảng `users` (mọi vai trò).
+- `daily_active_users`: số người dùng khác nhau có hoạt động học trong ngày hôm nay (UTC) — ôn từ, nộp bài đọc hoặc bài nghe, cùng định nghĩa với streak job.
+- `completion_rate`: % lượt làm bài thi (`user_test_attempts`) đã nộp trên toàn hệ thống, làm tròn 2 chữ số; chưa có lượt nào -> 0.
+- `recent_errors`: 10 log lỗi mức `error`/`critical` mới nhất trong `error_logs`.
+
+Danh sách `sent-history` và `subscriptions` trả tối đa 500 dòng mới nhất. Chưa có API để đưa dữ liệu vào `notifications` / `subscriptions`,
+nên test tạo dữ liệu thử trực tiếp vào DB qua `test/helpers/dashboard_fixtures.js` (thông báo thử gắn vào tháng 1/2001)
+và **tự dọn sạch** sau khi chạy. Nếu không tạo được dữ liệu thử, các kịch bản dùng dữ liệu thử được đánh dấu SKIP.
+
+Nếu database cũ chưa có các bảng `notification_templates`, `subscription_plans`, `subscriptions`, chạy `npm run migrate`.
 
 ## Giới hạn request khi chạy `test_api.py`
 
