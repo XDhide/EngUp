@@ -8,9 +8,31 @@ const {
   sequelize
 } = require('../../common/models');
 
+// ---------- Topics ----------
+
 async function findAllTopics() {
   return VocabularyTopic.findAll({ order: [['name', 'ASC']] });
 }
+
+async function findTopicById(id) {
+  return VocabularyTopic.findByPk(id);
+}
+
+async function createTopic(data) {
+  return VocabularyTopic.create(data);
+}
+
+async function updateTopic(topic, fieldsToUpdate) {
+  await topic.update(fieldsToUpdate);
+  return topic;
+}
+
+async function deleteTopic(topic) {
+  // FK vocabulary_words -> vocabulary_topics là ON DELETE SET NULL, không cascade xoá từ.
+  return topic.destroy();
+}
+
+// ---------- Words ----------
 
 async function findWords({ topic_id, difficulty, limit = 20, offset = 0 } = {}) {
   const where = {};
@@ -41,8 +63,12 @@ async function updateWord(word, fieldsToUpdate) {
 }
 
 async function deleteWord(word) {
+  // FK user_vocabulary_cards -> vocabulary_words là ON DELETE CASCADE ở DB,
+  // Sequelize destroy() sẽ để DB tự cascade, không cần xoá tay ở đây.
   return word.destroy();
 }
+
+// ---------- User (chỉ đọc / update 1 cột daily_new_word_limit, không đụng field khác của Auth) ----------
 
 async function findUserById(userId) {
   return User.findByPk(userId);
@@ -52,6 +78,8 @@ async function updateDailyNewWordLimit(userId, limit) {
   await User.update({ daily_new_word_limit: limit }, { where: { id: userId } });
   return User.findByPk(userId);
 }
+
+// ---------- New words (từ chưa có card của user) ----------
 
 async function findNewWordsForUser(userId, limit) {
   return VocabularyWord.findAll({
@@ -66,6 +94,8 @@ async function findNewWordsForUser(userId, limit) {
     limit
   });
 }
+
+// ---------- Cards / Review (SRS) ----------
 
 async function findCardsDueToday(userId) {
   return UserVocabularyCard.findAll({
@@ -93,6 +123,10 @@ async function createReviewLog({ card_id, user_id, word_id, result, response_tim
 
 module.exports = {
   findAllTopics,
+  findTopicById,
+  createTopic,
+  updateTopic,
+  deleteTopic,
   findWords,
   findWordById,
   createWord,

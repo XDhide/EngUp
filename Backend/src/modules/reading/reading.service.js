@@ -1,4 +1,4 @@
-const readingRepository = require('./reading.repository');
+const readingRepository = require('./reading.Repository');
 const AppError = require('../../common/utils/AppError');
 const {
   toArticleListItemDto,
@@ -6,13 +6,20 @@ const {
   toArticleAdminDto
 } = require('./reading.dtos');
 
+// Chưa có quy ước chung nào để gọi AI trong project, nên tự thiết kế endpoint
+// cấu hình qua env var, cùng kiểu với ML_SERVICE_URL ở Vocabulary.
 const AI_GENERATION_URL = process.env.AI_GENERATION_URL;
-const AI_GENERATION_TIMEOUT_MS = 15000;
+const AI_GENERATION_TIMEOUT_MS = 15000; // sinh nội dung lâu hơn /predict nên timeout dài hơn
+
 function assertAdmin(requester) {
   if (!requester || requester.role !== 'admin') {
     throw new AppError('Chỉ admin mới có quyền thao tác này', 403);
   }
 }
+
+// ============================================================
+// Đọc bài
+// ============================================================
 
 async function getArticles({ difficulty, topic }) {
   const articles = await readingRepository.findApprovedArticles({ difficulty, topic });
@@ -26,6 +33,10 @@ async function getArticleDetail(articleId) {
   }
   return toArticleDetailDto(article);
 }
+
+// ============================================================
+// Nộp bài & chấm điểm
+// ============================================================
 
 async function submitArticle(userId, articleId, answers) {
   const article = await readingRepository.findArticleWithQuestionsById(articleId);
@@ -63,6 +74,50 @@ async function submitArticle(userId, articleId, answers) {
   return { score, correct_count: correctCount, total_count: totalCount, review };
 }
 
+// ============================================================
+// CRUD bài đọc thủ công (Admin Content) — khác với generateArticle() ở dưới,
+// admin tự gõ nội dung, không qua AI, không cần vào hàng chờ duyệt vì chính
+// admin đã tạo (is_approved mặc định TRUE theo schema).
+// ============================================================
+
+async function createArticleManual(requester, { title, content, difficulty, topic }) {
+  assertAdmin(requester);
+  const article = await readingRepository.createArticle({
+    title,
+    content,
+    difficulty,
+    topic,
+    is_ai_generated: false,
+    is_approved: true,
+    created_by: requester.id
+  });
+  return toArticleAdminDto(article);
+}
+
+async function updateArticleManual(requester, articleId, fieldsToUpdate) {
+  assertAdmin(requester);
+  const article = await readingRepository.findArticleById(articleId);
+  if (!article) {
+    throw new AppError('Bài đọc không tồn tại', 404);
+  }
+  const updated = await readingRepository.updateArticle(article, fieldsToUpdate);
+  return toArticleAdminDto(updated);
+}
+
+async function deleteArticleManual(requester, articleId) {
+  assertAdmin(requester);
+  const article = await readingRepository.findArticleById(articleId);
+  if (!article) {
+    throw new AppError('Bài đọc không tồn tại', 404);
+  }
+  await readingRepository.deleteArticle(article);
+  return null;
+}
+
+// ============================================================
+// Sinh bài đọc bằng AI (cần duyệt)
+// ============================================================
+
 async function callAiGeneration(topic, difficulty) {
   if (!AI_GENERATION_URL) {
     throw new AppError('Chưa cấu hình AI_GENERATION_URL để sinh bài đọc', 502);
@@ -84,7 +139,7 @@ async function callAiGeneration(topic, difficulty) {
     }
 
     const data = await res.json();
-
+    // Kỳ vọng { title, content, questions: [{question_text, options, correct_answer, explanation}] }
     if (!data.title || !data.content || !Array.isArray(data.questions) || data.questions.length === 0) {
       throw new AppError('Kết quả AI trả về không hợp lệ', 502);
     }
@@ -102,6 +157,8 @@ async function generateArticle(requester, { topic, difficulty }) {
 
   const generated = await callAiGeneration(topic, difficulty);
 
+  // created_by = NULL vì đây là nội dung do AI sinh, không phải admin gõ tay
+  // (theo đúng comment trong schema reading_articles.created_by).
   const article = await readingRepository.createArticle({
     title: generated.title,
     content: generated.content,
