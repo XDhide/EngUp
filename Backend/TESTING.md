@@ -12,12 +12,15 @@ backend/
     ├── test_api.py       <- test toàn bộ API bằng Python (tích hợp, cần server + DB)
     ├── helpers/
     │   ├── approval_fixtures.js      <- tạo/kiểm tra/dọn dữ liệu thử cho test duyệt nội dung
-    │   └── admin_tests_fixtures.js   <- tạo/dọn lượt làm bài thử cho test thống kê đề thi
+    │   ├── admin_tests_fixtures.js   <- tạo/dọn lượt làm bài thử cho test thống kê đề thi
+    │   └── logs_fixtures.js          <- tạo/dọn error log + audit log thử cho test admin-logs
     └── unit/             <- unit test (node:test), KHÔNG cần MySQL
         ├── admin-approval.service.test.js
         ├── admin-approval.http.test.js
         ├── admin-tests.service.test.js
-        └── admin-tests.http.test.js
+        ├── admin-tests.http.test.js
+        ├── admin-logs.service.test.js
+        └── admin-logs.http.test.js
 ```
 
 ## 1. Cài đặt
@@ -38,8 +41,8 @@ pip install requests --break-system-packages
 npm run db:sync
 ```
 
-Nếu database đã có sẵn từ trước, chạy migration để thêm phần mới của module
-`admin-approval` (an toàn khi chạy lại nhiều lần):
+Nếu database đã có sẵn từ trước, chạy migration để thêm phần mới của các module
+`admin-approval` và `admin-logs` (an toàn khi chạy lại nhiều lần):
 
 ```bash
 npm run migrate
@@ -110,7 +113,7 @@ npm run test:unit
 ```
 
 Dùng test runner có sẵn của Node (`node:test`, cần Node 18+), không thêm dependency.
-Hiện bao phủ module `admin-approval` và `admin-tests`: logic service (404 / 409 / transaction /
+Hiện bao phủ module `admin-approval`, `admin-tests` và `admin-logs`: logic service (404 / 409 / transaction /
 audit log) và tầng HTTP (JWT, phân quyền admin, validation, định dạng response).
 
 ## Test module duyệt nội dung (`/api/admin/content`)
@@ -140,6 +143,22 @@ Phần `=== 10. ADMIN TESTS ===` trong `test_api.py`:
 
 Lượt làm bài của học viên được tạo trực tiếp vào DB qua `test/helpers/admin_tests_fixtures.js`
 (cần các tài khoản `student1/student2` do `npm run db:seed` tạo), và được dọn sạch sau khi chạy.
+
+## Test module log hệ thống (`/api/admin/logs`)
+
+Phần `=== 11. ADMIN LOGS ===` trong `test_api.py`:
+
+| Endpoint | Kiểm tra |
+|---|---|
+| `GET /api/admin/logs/errors[?service=&from=&to=]` | 401 / 403; `service` chỉ nhận `backend` \| `ml-service`; `from`/`to` nhận `YYYY-MM-DD` (`to` bao trọn ngày đó, UTC) hoặc ISO 8601, sai định dạng hoặc `from > to` -> 400; `data.logs[]` chỉ gồm `{service, level, message, created_at}` (không lộ `stack_trace`), mới nhất trước; kết hợp nhiều bộ lọc |
+| `GET /api/admin/logs/audit[?actor_id=&action=]` | 401 / 403; `actor_id` phải là số nguyên dương, `action` <= 100 ký tự và khớp chính xác; `data.logs[]` chỉ gồm `{actor_id, action, target_type, target_id, created_at}` (không lộ `detail`), mới nhất trước |
+
+Mỗi endpoint trả tối đa 500 dòng mới nhất. Chưa có API nào để ghi `error_logs`, nên test tạo dữ liệu thử
+trực tiếp vào DB qua `test/helpers/logs_fixtures.js` (log lỗi thử gắn vào tháng 1/2001 để không lẫn với log thật,
+cần các tài khoản do `npm run db:seed` tạo) và **tự dọn sạch** sau khi chạy. Nếu không tạo được dữ liệu thử,
+các kịch bản lọc được đánh dấu SKIP.
+
+Nếu database cũ chưa có bảng `error_logs`, chạy `npm run migrate` (migration `create-error-logs`, an toàn khi chạy lại).
 
 ## Giới hạn request khi chạy `test_api.py`
 

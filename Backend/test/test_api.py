@@ -1133,6 +1133,190 @@ class ApiTester:
             self.check("Câu hỏi của đề đã xoá bị xoá theo (CASCADE -> 404)", resp is not None and resp.status_code == 404, resp)
 
     # ---------------------------------------------------------------
+    # 11. ADMIN LOGS (log lỗi giữa các service + audit log)
+    # ---------------------------------------------------------------
+    def test_admin_logs(self):
+        print(f"\n{Colors.BOLD}=== 11. ADMIN LOGS (/admin/logs) ==={Colors.END}")
+        admin_token = self.state.get("admin_access_token")
+        student_token = self.state.get("student_access_token")
+        if not admin_token:
+            self.skip("Admin logs tests", "Không có admin token")
+            return
+
+        base = "/admin/logs"
+
+        # 11.1 Không có token -> 401, student -> 403
+        for ep in ("errors", "audit"):
+            resp, err = self.request("GET", f"{base}/{ep}")
+            self.check(f"GET /admin/logs/{ep} (không token -> 401)", resp is not None and resp.status_code == 401, resp)
+            if student_token:
+                resp, err = self.request("GET", f"{base}/{ep}", token=student_token)
+                self.check(f"GET /admin/logs/{ep} (student -> 403)", resp is not None and resp.status_code == 403, resp)
+            else:
+                self.skip(f"GET /admin/logs/{ep} (student -> 403)", "Không có student token")
+
+        # 11.2 Validation không cần dữ liệu thử
+        bad_queries = [
+            ("errors", {"service": "invalid"}, "service sai"),
+            ("errors", {"from": "abc"}, "from sai định dạng"),
+            ("errors", {"to": "2026-02-30"}, "to là ngày không tồn tại"),
+            ("errors", {"from": "2026-09-05", "to": "2026-09-01"}, "from > to"),
+            ("audit", {"actor_id": "abc"}, "actor_id không phải số"),
+            ("audit", {"actor_id": "0"}, "actor_id = 0"),
+            ("audit", {"action": "a" * 101}, "action > 100 ký tự"),
+        ]
+        for ep, params, label in bad_queries:
+            resp, err = self.request("GET", f"{base}/{ep}", token=admin_token, params=params)
+            self.check(f"GET /admin/logs/{ep} ({label} -> 400)", resp is not None and resp.status_code == 400, resp)
+
+        # 11.3 Response tổng quát (dữ liệu thật hoặc rỗng đều hợp lệ)
+        resp, err = self.request("GET", f"{base}/errors", token=admin_token)
+        data = self._data(resp) if resp is not None else None
+        self.check(
+            "GET /admin/logs/errors (admin -> 200, data = {logs: [...]})",
+            resp is not None and resp.status_code == 200 and isinstance(data, dict) and isinstance(data.get("logs"), list),
+            resp,
+        )
+        resp, err = self.request("GET", f"{base}/audit", token=admin_token)
+        data = self._data(resp) if resp is not None else None
+        self.check(
+            "GET /admin/logs/audit (admin -> 200, data = {logs: [...]})",
+            resp is not None and resp.status_code == 200 and isinstance(data, dict) and isinstance(data.get("logs"), list),
+            resp,
+        )
+
+        # 11.4 Các kịch bản lọc cần dữ liệu thử (tạo thẳng vào DB qua helper Node)
+        fixture, ferr = self._run_fixture("create", script="logs_fixtures.js")
+        if not fixture:
+            self.skip(
+                "Kịch bản lọc log lỗi / audit log",
+                f"Không tạo được dữ liệu thử ({ferr}). Cần 'node' trong PATH, .env trỏ đúng DB, đã chạy 'npm run migrate' và 'npm run db:seed'.",
+            )
+            return
+
+        try:
+            self._logs_scenarios(base, admin_token, fixture)
+        finally:
+            _, cerr = self._run_fixture("cleanup", fixture, script="logs_fixtures.js")
+            if cerr:
+                print(f"{Colors.YELLOW}⚠️  Không dọn được dữ liệu thử: {cerr}{Colors.END}")
+
+    def _logs_scenarios(self, base, admin_token, fixture):
+        tag, suffix = fixture["tag"], fixture["suffix"]
+        window = {"from": "2001-01-01", "to": "2001-12-31"}  # log thử nằm hết trong tháng 1/2001
+
+        def ours(resp):
+            data = self._data(resp) or {}
+            logs = data.get("logs", []) if isinstance(data, dict) else []
+            return [l for l in logs if tag in str(l.get("message", "")) and suffix in str(l.get("message", ""))]
+
+        def get_errors(**params):
+            return self.request("GET", f"{base}/errors", token=admin_token, params=params)
+
+        # --- GET /errors ---
+        resp, err = get_errors(**window)
+        rows = ours(resp) if resp is not None else []
+        self.check(
+            "GET /admin/logs/errors?from&to (-> 200, có đủ 4 log thử)",
+            resp is not None and resp.status_code == 200 and len(rows) == 4,
+            resp,
+        )
+        all_rows = (self._data(resp) or {}).get("logs", []) if resp is not None else []
+        shape_ok = bool(all_rows) and all(set(l.keys()) == {"service", "level", "message", "created_at"} for l in all_rows)
+        self._check_db("GET /admin/logs/errors — mỗi log đúng 4 field {service, level, message, created_at}, không lộ stack_trace", shape_ok)
+        dates = [l.get("created_at") for l in rows]
+        self._check_db("GET /admin/logs/errors — sắp xếp mới nhất trước", dates == sorted(dates, reverse=True) and len(dates) == 4)
+
+        for svc, expected in (("backend", 2), ("ml-service", 2)):
+            resp, err = get_errors(service=svc, **window)
+            rows = ours(resp) if resp is not None else []
+            all_rows = (self._data(resp) or {}).get("logs", []) if resp is not None else []
+            self.check(
+                f"GET /admin/logs/errors?service={svc} (chỉ log của {svc})",
+                resp is not None and resp.status_code == 200 and len(rows) == expected
+                and all(l.get("service") == svc for l in all_rows),
+                resp,
+            )
+
+        # from/to dạng ngày bao trọn cả ngày cuối: 15/01 và 20/01 (đều lúc 10:00 UTC) đều nằm trong khoảng
+        resp, err = get_errors(**{"from": "2001-01-15", "to": "2001-01-20"})
+        msgs = sorted(l["message"].split(" ")[1] for l in ours(resp)) if resp is not None and resp.status_code == 200 else []
+        self.check(
+            "GET /admin/logs/errors?from=2001-01-15&to=2001-01-20 (bao trọn ngày cuối -> backend-2, ml-1)",
+            resp is not None and msgs == ["backend-2", "ml-1"],
+            resp,
+        )
+
+        # ISO 8601 đầy đủ: 09:00Z ngày 20/01 loại log 10:00Z cùng ngày
+        resp, err = get_errors(**{"from": "2001-01-15T00:00:00Z", "to": "2001-01-20T09:00:00Z"})
+        msgs = sorted(l["message"].split(" ")[1] for l in ours(resp)) if resp is not None and resp.status_code == 200 else []
+        self.check(
+            "GET /admin/logs/errors?to=2001-01-20T09:00:00Z (ISO 8601 -> chỉ backend-2)",
+            resp is not None and msgs == ["backend-2"],
+            resp,
+        )
+
+        resp, err = get_errors(service="backend", **{"from": "2001-01-12", "to": "2001-01-31"})
+        msgs = [l["message"].split(" ")[1] for l in ours(resp)] if resp is not None and resp.status_code == 200 else []
+        self.check(
+            "GET /admin/logs/errors?service=backend&from&to (kết hợp bộ lọc -> chỉ backend-2)",
+            resp is not None and msgs == ["backend-2"],
+            resp,
+        )
+
+        resp, err = get_errors(**{"from": "1990-01-01", "to": "1990-12-31"})
+        self.check(
+            "GET /admin/logs/errors (khoảng thời gian không có log -> logs = [])",
+            resp is not None and resp.status_code == 200 and (self._data(resp) or {}).get("logs") == [],
+            resp,
+        )
+
+        # --- GET /audit ---
+        def get_audit(**params):
+            return self.request("GET", f"{base}/audit", token=admin_token, params=params)
+
+        resp, err = get_audit(action=fixture["action_alpha"])
+        logs = (self._data(resp) or {}).get("logs", []) if resp is not None else []
+        self.check(
+            "GET /admin/logs/audit?action= (-> 200, 2 log của admin, khớp chính xác action)",
+            resp is not None and resp.status_code == 200 and len(logs) == 2
+            and all(l.get("actor_id") == fixture["admin_id"] and l.get("action") == fixture["action_alpha"] for l in logs),
+            resp,
+        )
+        shape_ok = bool(logs) and all(set(l.keys()) == {"actor_id", "action", "target_type", "target_id", "created_at"} for l in logs)
+        self._check_db("GET /admin/logs/audit — mỗi log đúng 5 field {actor_id, action, target_type, target_id, created_at}, không lộ detail", shape_ok)
+        self._check_db(
+            "GET /admin/logs/audit — sắp xếp mới nhất trước (target_id 1002 rồi 1001)",
+            [l.get("target_id") for l in logs] == [1002, 1001],
+        )
+
+        resp, err = get_audit(actor_id=fixture["student_id"], action=fixture["action_beta"])
+        logs = (self._data(resp) or {}).get("logs", []) if resp is not None else []
+        self.check(
+            "GET /admin/logs/audit?actor_id=&action= (kết hợp -> 1 log của student)",
+            resp is not None and resp.status_code == 200 and len(logs) == 1 and logs[0].get("target_id") == 1003,
+            resp,
+        )
+
+        # action đúng nhưng actor khác -> rỗng
+        resp, err = get_audit(actor_id=fixture["student_id"], action=fixture["action_alpha"])
+        self.check(
+            "GET /admin/logs/audit (action của admin nhưng actor_id = student -> logs = [])",
+            resp is not None and resp.status_code == 200 and (self._data(resp) or {}).get("logs") == [],
+            resp,
+        )
+
+        # actor_id lọc đúng người: mọi log trả về đều thuộc admin
+        resp, err = get_audit(actor_id=fixture["admin_id"])
+        logs = (self._data(resp) or {}).get("logs", []) if resp is not None else []
+        self.check(
+            "GET /admin/logs/audit?actor_id= (chỉ log của actor đó)",
+            resp is not None and resp.status_code == 200 and len(logs) >= 2
+            and all(l.get("actor_id") == fixture["admin_id"] for l in logs),
+            resp,
+        )
+
+    # ---------------------------------------------------------------
     # RUN ALL
     # ---------------------------------------------------------------
     def run_all(self):
@@ -1160,6 +1344,7 @@ class ApiTester:
         self.test_statistics()
         self.test_admin_content_approval()
         self.test_admin_tests()
+        self.test_admin_logs()
 
         self.print_summary()
 
