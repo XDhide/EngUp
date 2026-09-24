@@ -5,6 +5,8 @@ const {
   AdminContentApprovalQueue
 } = require('../../common/models');
 
+// ---------- Articles ----------
+
 async function findApprovedArticles({ difficulty, topic } = {}) {
   const where = { is_approved: true };
   if (difficulty) where.difficulty = difficulty;
@@ -24,6 +26,8 @@ async function findApprovedArticleWithQuestions(id) {
 }
 
 async function findArticleWithQuestionsById(id) {
+  // Dùng nội bộ cho submit/grading — không lọc is_approved vì lúc submit
+  // article chắc chắn đã qua bước xem chi tiết (đã approved) trước đó.
   return ReadingArticle.findOne({
     where: { id },
     include: [{ model: ReadingQuestion, as: 'questions' }]
@@ -32,6 +36,20 @@ async function findArticleWithQuestionsById(id) {
 
 async function createArticle(data) {
   return ReadingArticle.create(data);
+}
+
+async function findArticleById(id) {
+  return ReadingArticle.findByPk(id);
+}
+
+async function updateArticle(article, fieldsToUpdate) {
+  await article.update(fieldsToUpdate);
+  return article;
+}
+
+async function deleteArticle(article) {
+  // FK reading_questions/reading_attempts -> reading_articles là ON DELETE CASCADE.
+  return article.destroy();
 }
 
 async function createQuestionsBulk(articleId, questions) {
@@ -45,9 +63,13 @@ async function findArticleWithQuestionsIncludingAnswers(id) {
   });
 }
 
+// ---------- Attempts ----------
+
 async function createAttempt(data) {
   return ReadingAttempt.create(data);
 }
+
+// ---------- Admin approval queue (Reading chỉ INSERT, không đọc/sửa field khác) ----------
 
 async function enqueueApproval(contentId) {
   return AdminContentApprovalQueue.create({
@@ -62,6 +84,9 @@ module.exports = {
   findApprovedArticleWithQuestions,
   findArticleWithQuestionsById,
   createArticle,
+  findArticleById,
+  updateArticle,
+  deleteArticle,
   createQuestionsBulk,
   findArticleWithQuestionsIncludingAnswers,
   createAttempt,

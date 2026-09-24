@@ -7,12 +7,44 @@ const {
   toReviewCardDto
 } = require('./vocabulary.dtos');
 
+// Giả định biến môi trường ML_SERVICE_URL trỏ tới ML-Service (vd http://localhost:6000).
+// Nếu chưa có ML-Service chạy thật, biến này để trống -> code tự fallback SM-2, không lỗi.
 const ML_SERVICE_URL = process.env.ML_SERVICE_URL;
 const ML_SERVICE_TIMEOUT_MS = 2500;
+
+// ============================================================
+// Topics & Words
+// ============================================================
 
 async function getTopics() {
   const topics = await vocabularyRepository.findAllTopics();
   return { topics: topics.map(toTopicDto) };
+}
+
+async function createTopic(requester, data) {
+  assertAdmin(requester);
+  const topic = await vocabularyRepository.createTopic(data);
+  return toTopicDto(topic);
+}
+
+async function updateTopic(requester, topicId, fieldsToUpdate) {
+  assertAdmin(requester);
+  const topic = await vocabularyRepository.findTopicById(topicId);
+  if (!topic) {
+    throw new AppError('Chủ đề không tồn tại', 404);
+  }
+  const updated = await vocabularyRepository.updateTopic(topic, fieldsToUpdate);
+  return toTopicDto(updated);
+}
+
+async function deleteTopic(requester, topicId) {
+  assertAdmin(requester);
+  const topic = await vocabularyRepository.findTopicById(topicId);
+  if (!topic) {
+    throw new AppError('Chủ đề không tồn tại', 404);
+  }
+  await vocabularyRepository.deleteTopic(topic);
+  return null;
 }
 
 async function getWords({ topic_id, difficulty, limit, offset }) {
@@ -28,6 +60,10 @@ async function getWords({ topic_id, difficulty, limit, offset }) {
 
   return { words: words.map(toWordListItemDto), total };
 }
+
+// ---- Admin CRUD ----
+// requester = req.user (đã qua authenticateJWT). Kiểm role ngay đây vì chưa rõ
+// đồng đội có middleware requireRole riêng hay không — dễ thay bằng middleware sau.
 
 function assertAdmin(requester) {
   if (!requester || requester.role !== 'admin') {
@@ -61,6 +97,10 @@ async function deleteWord(requester, wordId) {
   return null;
 }
 
+// ============================================================
+// New words trong ngày (giới hạn theo users.daily_new_word_limit)
+// ============================================================
+
 async function getNewWords(userId, limitQuery) {
   const user = await vocabularyRepository.findUserById(userId);
   if (!user) {
@@ -78,6 +118,12 @@ async function updateDailyNewWordLimit(userId, limit) {
   return { daily_new_word_limit: user.daily_new_word_limit };
 }
 
+// ============================================================
+// SM-2 fallback (khi ML-Service lỗi/timeout/chưa tồn tại)
+// Ánh xạ 4 nút Anki-style (again/hard/good/easy) sang cập nhật ease_factor,
+// interval_days, repetitions — quy ước riêng cho EngUp, không phải SM-2 gốc 0-5.
+// ============================================================
+
 function computeSm2Update({ ease_factor, interval_days, repetitions }, result) {
   let newEase = Number(ease_factor);
   let newInterval = Number(interval_days);
@@ -86,7 +132,7 @@ function computeSm2Update({ ease_factor, interval_days, repetitions }, result) {
   switch (result) {
     case 'again':
       newRepetitions = 0;
-      newInterval = 0;
+      newInterval = 0; // ôn lại trong ngày / phiên tiếp theo
       newEase = Math.max(1.3, newEase - 0.2);
       break;
     case 'hard':
@@ -117,10 +163,12 @@ function computeSm2Update({ ease_factor, interval_days, repetitions }, result) {
     interval_days: newInterval,
     repetitions: newRepetitions,
     next_review_at: nextReviewAt,
-    recall_probability: null
+    recall_probability: null // SM-2 fallback không tính recall_probability
   };
 }
 
+// Gọi ML-Service /predict cho 1 card; trả null nếu lỗi/timeout/chưa cấu hình URL
+// -> caller tự fallback SM-2, KHÔNG được để lỗi này chặn response của /review/today.
 async function tryPredict(card) {
   if (!ML_SERVICE_URL) return null;
 
@@ -136,14 +184,19 @@ async function tryPredict(card) {
     });
     if (!res.ok) return null;
     const data = await res.json();
+    // Kỳ vọng { recall_probability, next_review_at }
     if (typeof data.recall_probability !== 'number') return null;
     return data;
   } catch (err) {
-    return null;
+    return null; // timeout hoặc lỗi mạng -> fallback
   } finally {
     clearTimeout(timeout);
   }
 }
+
+// ============================================================
+// Review today / submit
+// ============================================================
 
 async function getTodayReviewCards(userId) {
   const cards = await vocabularyRepository.findCardsDueToday(userId);
@@ -186,6 +239,9 @@ async function submitReview(userId, { card_id, result, response_time_ms }) {
 
 module.exports = {
   getTopics,
+  createTopic,
+  updateTopic,
+  deleteTopic,
   getWords,
   createWord,
   updateWord,
@@ -194,6 +250,6 @@ module.exports = {
   updateDailyNewWordLimit,
   getTodayReviewCards,
   submitReview,
-
+  // export để viết unit test riêng cho thuật toán, không phụ thuộc DB
   computeSm2Update
 };

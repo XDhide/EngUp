@@ -8,6 +8,22 @@ function isPositiveInt(value) {
   return Number.isInteger(n) && n > 0;
 }
 
+function validateCreateTopic(req, res, next) {
+  const { name } = req.body || {};
+  if (!name || typeof name !== 'string') {
+    return next(new AppError('name là bắt buộc và phải là chuỗi', 400));
+  }
+  next();
+}
+
+function validateUpdateTopic(req, res, next) {
+  const body = req.body || {};
+  if (!['name', 'description', 'image_url'].some((f) => body[f] !== undefined)) {
+    return next(new AppError('Cần ít nhất một field để cập nhật', 400));
+  }
+  next();
+}
+
 function validateListWordsQuery(req, res, next) {
   const { topic_id, difficulty, limit, offset } = req.query || {};
   const errors = [];
@@ -102,6 +118,8 @@ function validateSubmitReview(req, res, next) {
 }
 
 module.exports = {
+  validateCreateTopic,
+  validateUpdateTopic,
   validateListWordsQuery,
   validateCreateWord,
   validateUpdateWord,

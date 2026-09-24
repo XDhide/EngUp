@@ -10,6 +10,34 @@ async function getTopics(req, res, next) {
   }
 }
 
+async function createTopic(req, res, next) {
+  try {
+    const { name, description, image_url } = req.body;
+    const data = await vocabularyService.createTopic(req.user, { name, description, image_url });
+    return successResponse(res, { message: 'Tạo chủ đề thành công', data, statusCode: 201 });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function updateTopic(req, res, next) {
+  try {
+    const data = await vocabularyService.updateTopic(req.user, req.params.id, req.body);
+    return successResponse(res, { message: 'Cập nhật chủ đề thành công', data, statusCode: 200 });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function deleteTopic(req, res, next) {
+  try {
+    const data = await vocabularyService.deleteTopic(req.user, req.params.id);
+    return successResponse(res, { message: 'Xoá chủ đề thành công', data, statusCode: 200 });
+  } catch (err) {
+    next(err);
+  }
+}
+
 async function getWords(req, res, next) {
   try {
     const { topic_id, difficulty, limit, offset } = req.query;
@@ -95,6 +123,9 @@ async function submitReview(req, res, next) {
 
 module.exports = {
   getTopics,
+  createTopic,
+  updateTopic,
+  deleteTopic,
   getWords,
   createWord,
   updateWord,
