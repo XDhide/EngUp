@@ -8,8 +8,13 @@
  * Giao thức: đọc JSON từ stdin, in ra đúng 1 dòng JSON cuối cùng trên stdout.
  *
  *   echo "{}"                       | node test/helpers/dashboard_fixtures.js create
- *   echo "{}"                       | node test/helpers/dashboard_fixtures.js expected
+ *   echo '<JSON của lệnh create>'   | node test/helpers/dashboard_fixtures.js expected
  *   echo '<JSON của lệnh create>'   | node test/helpers/dashboard_fixtures.js cleanup
+ *
+ * Lưu ý: "expected" cần được gọi với JSON mà "create" đã trả về (chứa "now"), để đối chiếu
+ * daily_active_users đúng "ngày UTC" đã dùng khi tạo dữ liệu thử — xem ghi chú trong create()/expected().
+ * Nếu gọi "expected" với "{}" (không có "now"), nó vẫn chạy được nhưng sẽ tự lấy new Date() tại
+ * thời điểm gọi, có thể lệch ngày UTC so với dữ liệu đã tạo trước đó.
  */
 process.env.DOTENV_CONFIG_QUIET = 'true';
 require('dotenv').config({ path: require('path').resolve(__dirname, '../../.env'), quiet: true });
@@ -115,6 +120,11 @@ async function create() {
   return {
     tag: TAG,
     suffix,
+    // Mốc thời gian dùng để tạo dữ liệu "hoạt động hôm nay" (user_test_attempts, reading_attempt).
+    // expected() PHẢI dùng lại đúng mốc này khi đối chiếu, thay vì tự lấy new Date() ở một thời điểm
+    // khác — nếu không, hai lần gọi lệch nhau qua đúng ranh giới nửa đêm UTC sẽ khiến daily_active_users
+    // bị tính trên hai "ngày UTC" khác nhau và không bao giờ khớp nhau dù code dashboard hoàn toàn đúng.
+    now: now.toISOString(),
     user_id: Number(user.id),
     student1_id: Number(student1.id),
     notification_ids: notificationIds,
@@ -132,13 +142,16 @@ async function create() {
 }
 
 // Số liệu dashboard tính lại bằng SQL thuần — đối chứng độc lập với code của module.
-async function expected() {
+// input.now (ISO string, do create() trả về) neo lại đúng mốc thời gian đã dùng để tạo dữ liệu thử,
+// tránh trường hợp lệch ranh giới ngày UTC giữa lúc create() chạy và lúc expected() chạy (xem ghi chú ở create()).
+// Không có input.now (gọi độc lập, ví dụ echo "{}" | ... expected) -> vẫn dùng new Date() như cũ.
+async function expected({ now: nowIso } = {}) {
   const one = async (sql, replacements = {}) => {
     const [row] = await db.sequelize.query(sql, { replacements, type: QueryTypes.SELECT });
     return Number(Object.values(row)[0]);
   };
 
-  const now = new Date();
+  const now = nowIso ? new Date(nowIso) : new Date();
   const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
   const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
   const range = { start, end };
@@ -199,7 +212,7 @@ async function cleanup(fixture) {
     const input = await readStdinJson();
     let output;
     if (mode === 'create') output = await create();
-    else if (mode === 'expected') output = await expected();
+    else if (mode === 'expected') output = await expected(input);
     else if (mode === 'cleanup') output = await cleanup(input);
     else throw new Error(`Mode không hợp lệ: ${mode} (create | expected | cleanup)`);
 

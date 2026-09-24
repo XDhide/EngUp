@@ -1617,7 +1617,9 @@ class ApiTester:
             self.check("GET /admin/dashboard/overview (sau khi có dữ liệu thử)", False, resp)
             return
 
-        expected, eerr = self._run_fixture("expected", script=script)
+        # Truyền lại "fixture" (chứa "now" mà create() đã dùng) để expected() đối chiếu đúng
+        # "ngày UTC" đã tạo dữ liệu thử, tránh lệch ranh giới nửa đêm UTC giữa hai lần gọi helper.
+        expected, eerr = self._run_fixture("expected", fixture, script=script)
         if expected:
             self.check(
                 "GET /admin/dashboard/overview — total_users / daily_active_users / completion_rate khớp SQL thuần",
