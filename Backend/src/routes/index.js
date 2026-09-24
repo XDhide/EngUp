@@ -6,6 +6,7 @@ const { vocabularyRouter, reviewRouter } = require('../modules/vocabulary/vocabu
 router.use('/auth', require('../modules/auth/auth.routes'));
 router.use('/admin/auth', require('../modules/admin-auth/admin-auth.routes'));
 router.use('/admin/content', require('../modules/admin-approval/admin-approval.routes'));
+router.use('/admin/tests', require('../modules/admin-tests/admin-tests.routes'));
 router.use('/notebook', require('../modules/notebook/notebook.routes'));
 router.use('/reading', require('../modules/reading/reading.routes'));
 

@@ -122,6 +122,8 @@ class ApiTester:
             return True
         else:
             body_preview = self._safe_body_preview(resp)
+            if resp.status_code == 429:
+                detail += " | Bị rate limit: khởi động server với RATE_LIMIT_MAX=1000 (xem TESTING.md)"
             self.record(name, "FAIL", detail + f" | body: {body_preview}")
             return False
 
@@ -688,14 +690,14 @@ class ApiTester:
     # ---------------------------------------------------------------
     # 9. ADMIN CONTENT APPROVAL
     # ---------------------------------------------------------------
-    def _run_fixture(self, mode, payload=None):
-        """Gọi test/helpers/approval_fixtures.js (tạo/kiểm tra/dọn dữ liệu thử trong DB).
+    def _run_fixture(self, mode, payload=None, script="approval_fixtures.js"):
+        """Gọi một helper Node trong test/helpers/ (tạo/kiểm tra/dọn dữ liệu thử trong DB).
         Trả về (dict, None) nếu thành công hoặc (None, thông_báo_lỗi)."""
         project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        script = os.path.join(project_root, "test", "helpers", "approval_fixtures.js")
+        script_path = os.path.join(project_root, "test", "helpers", script)
         try:
             proc = subprocess.run(
-                ["node", script, mode],
+                ["node", script_path, mode],
                 input=json.dumps(payload or {}),
                 capture_output=True, encoding="utf-8", cwd=project_root, timeout=60,
             )
@@ -925,6 +927,212 @@ class ApiTester:
         )
 
     # ---------------------------------------------------------------
+    # 10. ADMIN TESTS (CRUD đề thi / câu hỏi + thống kê lượt làm)
+    # ---------------------------------------------------------------
+    def test_admin_tests(self):
+        print(f"\n{Colors.BOLD}=== 10. ADMIN TESTS (/admin/tests) ==={Colors.END}")
+        admin_token = self.state.get("admin_access_token")
+        student_token = self.state.get("student_access_token")
+        if not admin_token:
+            self.skip("Admin tests", "Không có admin token")
+            return
+
+        base = "/admin/tests"
+        set_payload = {"exam_type": "IELTS", "section": "Reading", "title": "[TEST-ADMIN] Đề thử", "time_limit_minutes": 60}
+
+        # 10.1 Xác thực & phân quyền
+        resp, err = self.request("POST", f"{base}/test-sets", json=set_payload)
+        self.check("POST /admin/tests/test-sets (không token -> 401)", resp is not None and resp.status_code == 401, resp)
+        if student_token:
+            for method, path, body in [
+                ("POST", "/test-sets", set_payload),
+                ("PUT", "/questions/1", {"question_text": "x"}),
+                ("GET", "/attempts?test_set_id=1", None),
+            ]:
+                resp, err = self.request(method, f"{base}{path}", token=student_token, json=body)
+                self.check(f"{method} /admin/tests{path.split('?')[0]} (student -> 403)", resp is not None and resp.status_code == 403, resp)
+        else:
+            self.skip("Admin tests (student -> 403)", "Không có student token")
+
+        # 10.2 Validation đề thi
+        for label, body in [
+            ("thiếu field", {}),
+            ("exam_type sai", {**set_payload, "exam_type": "GRE"}),
+            ("time_limit_minutes = 0", {**set_payload, "time_limit_minutes": 0}),
+            ("time_limit_minutes là chuỗi", {**set_payload, "time_limit_minutes": "60"}),
+        ]:
+            resp, err = self.request("POST", f"{base}/test-sets", token=admin_token, json=body)
+            self.check(f"POST /admin/tests/test-sets ({label} -> 400)", resp is not None and resp.status_code == 400, resp)
+
+        # 10.3 Tạo đề
+        resp, err = self.request("POST", f"{base}/test-sets", token=admin_token, json=set_payload)
+        created = self._data(resp) if resp is not None else None
+        ok = self.check(
+            "POST /admin/tests/test-sets (-> 201, data = test_set)",
+            resp is not None and resp.status_code == 201 and isinstance(created, dict)
+            and created.get("id") and created.get("title") == set_payload["title"]
+            and created.get("exam_type") == "IELTS" and created.get("time_limit_minutes") == 60,
+            resp,
+        )
+        if not ok:
+            self.skip("Các test admin tests còn lại", "Không tạo được đề thi")
+            return
+
+        set_id = created["id"]
+        question_ids = []
+        try:
+            self._admin_tests_scenarios(base, admin_token, set_id, question_ids)
+        finally:
+            _, cerr = self._run_fixture("cleanup", {"test_set_id": set_id, "question_ids": question_ids}, script="admin_tests_fixtures.js")
+            if cerr:
+                print(f"{Colors.YELLOW}⚠️  Không dọn được dữ liệu thử: {cerr}{Colors.END}")
+
+    def _admin_tests_scenarios(self, base, admin_token, set_id, question_ids):
+        # --- PUT đề ---
+        resp, err = self.request("PUT", f"{base}/test-sets/{set_id}", token=admin_token, json={"title": "[TEST-ADMIN] Đề đã sửa"})
+        data = self._data(resp) if resp is not None else None
+        self.check(
+            "PUT /admin/tests/test-sets/:id (sửa từng phần -> 200, field khác giữ nguyên)",
+            resp is not None and resp.status_code == 200 and isinstance(data, dict)
+            and data.get("title") == "[TEST-ADMIN] Đề đã sửa" and data.get("exam_type") == "IELTS"
+            and data.get("time_limit_minutes") == 60,
+            resp,
+        )
+        resp, err = self.request("PUT", f"{base}/test-sets/{set_id}", token=admin_token, json={})
+        self.check("PUT /admin/tests/test-sets/:id (body rỗng -> 400)", resp is not None and resp.status_code == 400, resp)
+        resp, err = self.request("PUT", f"{base}/test-sets/99999999", token=admin_token, json={"title": "x"})
+        self.check("PUT /admin/tests/test-sets/99999999 (-> 404)", resp is not None and resp.status_code == 404, resp)
+
+        # --- POST câu hỏi ---
+        mc = {
+            "test_set_id": set_id, "question_text": "2 + 2 = ?", "question_type": "multiple_choice",
+            "options": ["A. 3", "B. 4", "C. 5", "D. 6"], "correct_answer": "B", "order_index": 1,
+        }
+        for label, body in [
+            ("multiple_choice thiếu options", {k: v for k, v in mc.items() if k != "options"}),
+            ("fill_blank thiếu correct_answer", {"test_set_id": set_id, "question_text": "q", "question_type": "fill_blank"}),
+            ("question_type sai", {**mc, "question_type": "true_false"}),
+            ("order_index âm", {**mc, "order_index": -1}),
+        ]:
+            resp, err = self.request("POST", f"{base}/questions", token=admin_token, json=body)
+            self.check(f"POST /admin/tests/questions ({label} -> 400)", resp is not None and resp.status_code == 400, resp)
+        resp, err = self.request("POST", f"{base}/questions", token=admin_token, json={**mc, "test_set_id": 99999999})
+        self.check("POST /admin/tests/questions (test_set_id không tồn tại -> 404)", resp is not None and resp.status_code == 404, resp)
+
+        resp, err = self.request("POST", f"{base}/questions", token=admin_token, json=mc)
+        q = self._data(resp) if resp is not None else None
+        ok = self.check(
+            "POST /admin/tests/questions (multiple_choice -> 201, data = question)",
+            resp is not None and resp.status_code == 201 and isinstance(q, dict) and q.get("id")
+            and q.get("test_set_id") == set_id and q.get("options") == mc["options"]
+            and q.get("correct_answer") == "B" and q.get("order_index") == 1,
+            resp,
+        )
+        if not ok:
+            return
+        question_ids.append(q["id"])
+
+        resp, err = self.request(
+            "POST", f"{base}/questions", token=admin_token,
+            json={"test_set_id": set_id, "question_text": "Write about your hometown", "question_type": "essay"},
+        )
+        essay = self._data(resp) if resp is not None else None
+        ok = self.check(
+            "POST /admin/tests/questions (essay không cần options/correct_answer -> 201)",
+            resp is not None and resp.status_code == 201 and isinstance(essay, dict)
+            and essay.get("options") is None and essay.get("correct_answer") is None and essay.get("order_index") == 0,
+            resp,
+        )
+        if ok:
+            question_ids.append(essay["id"])
+
+        # --- PUT câu hỏi ---
+        resp, err = self.request("PUT", f"{base}/questions/{q['id']}", token=admin_token, json={"question_text": "3 + 3 = ?", "correct_answer": "D"})
+        data = self._data(resp) if resp is not None else None
+        self.check(
+            "PUT /admin/tests/questions/:id (sửa từng phần -> 200, options giữ nguyên)",
+            resp is not None and resp.status_code == 200 and isinstance(data, dict)
+            and data.get("question_text") == "3 + 3 = ?" and data.get("correct_answer") == "D"
+            and data.get("options") == mc["options"],
+            resp,
+        )
+        if ok:
+            resp, err = self.request("PUT", f"{base}/questions/{essay['id']}", token=admin_token, json={"question_type": "multiple_choice"})
+            self.check(
+                "PUT /admin/tests/questions/:id (đổi essay -> multiple_choice mà thiếu options -> 400)",
+                resp is not None and resp.status_code == 400, resp,
+            )
+        resp, err = self.request("PUT", f"{base}/questions/99999999", token=admin_token, json={"question_text": "x"})
+        self.check("PUT /admin/tests/questions/99999999 (-> 404)", resp is not None and resp.status_code == 404, resp)
+
+        # --- GET /attempts ---
+        resp, err = self.request("GET", f"{base}/attempts", token=admin_token)
+        self.check("GET /admin/tests/attempts (thiếu test_set_id -> 400)", resp is not None and resp.status_code == 400, resp)
+        resp, err = self.request("GET", f"{base}/attempts", token=admin_token, params={"test_set_id": "abc"})
+        self.check("GET /admin/tests/attempts?test_set_id=abc (-> 400)", resp is not None and resp.status_code == 400, resp)
+        resp, err = self.request("GET", f"{base}/attempts", token=admin_token, params={"test_set_id": 99999999})
+        self.check("GET /admin/tests/attempts?test_set_id=99999999 (-> 404)", resp is not None and resp.status_code == 404, resp)
+
+        resp, err = self.request("GET", f"{base}/attempts", token=admin_token, params={"test_set_id": set_id})
+        data = self._data(resp) if resp is not None else None
+        self.check(
+            "GET /admin/tests/attempts (đề chưa có lượt làm -> attempts=[], completion_rate=0)",
+            resp is not None and resp.status_code == 200 and isinstance(data, dict)
+            and data.get("attempts") == [] and data.get("completion_rate") == 0,
+            resp,
+        )
+
+        seeded, serr = self._run_fixture("seed_attempts", {"test_set_id": set_id}, script="admin_tests_fixtures.js")
+        if not seeded:
+            self.skip("Thống kê lượt làm bài / xoá đề có lượt làm", f"Không tạo được lượt làm thử ({serr})")
+        else:
+            resp, err = self.request("GET", f"{base}/attempts", token=admin_token, params={"test_set_id": set_id})
+            data = self._data(resp) if resp is not None else None
+            attempts = data.get("attempts", []) if isinstance(data, dict) else []
+            shape_ok = len(attempts) == 3 and all(set(a.keys()) == {"user_id", "score", "band_score", "status"} for a in attempts)
+            submitted = sorted((a["score"], a["band_score"]) for a in attempts if a["status"] == "submitted")
+            self.check(
+                "GET /admin/tests/attempts (3 lượt: shape đúng, điểm dạng số, completion_rate=66.67)",
+                resp is not None and resp.status_code == 200 and shape_ok
+                and submitted == [(60, 5.5), (80, 7)] and data.get("completion_rate") == 66.67
+                and sum(1 for a in attempts if a["status"] == "in_progress") == 1,
+                resp,
+            )
+
+            resp, err = self.request("DELETE", f"{base}/test-sets/{set_id}", token=admin_token)
+            self.check("DELETE /admin/tests/test-sets/:id (đề đã có lượt làm -> 409)", resp is not None and resp.status_code == 409, resp)
+
+            # dọn lượt làm thử để có thể xoá đề ở bước tiếp theo
+            self._run_fixture("delete_attempts", {"test_set_id": set_id}, script="admin_tests_fixtures.js")
+
+        # --- DELETE câu hỏi ---
+        resp, err = self.request("DELETE", f"{base}/questions/{q['id']}", token=admin_token)
+        data = self._data(resp) if resp is not None else None
+        self.check(
+            "DELETE /admin/tests/questions/:id (-> 200, data = question đã xoá)",
+            resp is not None and resp.status_code == 200 and isinstance(data, dict) and data.get("id") == q["id"],
+            resp,
+        )
+        resp, err = self.request("DELETE", f"{base}/questions/{q['id']}", token=admin_token)
+        self.check("DELETE /admin/tests/questions/:id (xoá lại -> 404)", resp is not None and resp.status_code == 404, resp)
+
+        # --- DELETE đề (câu hỏi essay còn lại phải bị xoá theo) ---
+        if not seeded:
+            return
+        resp, err = self.request("DELETE", f"{base}/test-sets/{set_id}", token=admin_token)
+        data = self._data(resp) if resp is not None else None
+        self.check(
+            "DELETE /admin/tests/test-sets/:id (-> 200, data = test_set đã xoá)",
+            resp is not None and resp.status_code == 200 and isinstance(data, dict) and data.get("id") == set_id,
+            resp,
+        )
+        resp, err = self.request("DELETE", f"{base}/test-sets/{set_id}", token=admin_token)
+        self.check("DELETE /admin/tests/test-sets/:id (xoá lại -> 404)", resp is not None and resp.status_code == 404, resp)
+        if ok:
+            resp, err = self.request("PUT", f"{base}/questions/{essay['id']}", token=admin_token, json={"question_text": "x"})
+            self.check("Câu hỏi của đề đã xoá bị xoá theo (CASCADE -> 404)", resp is not None and resp.status_code == 404, resp)
+
+    # ---------------------------------------------------------------
     # RUN ALL
     # ---------------------------------------------------------------
     def run_all(self):
@@ -951,6 +1159,7 @@ class ApiTester:
         self.test_writing()
         self.test_statistics()
         self.test_admin_content_approval()
+        self.test_admin_tests()
 
         self.print_summary()
 
