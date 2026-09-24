@@ -20,7 +20,7 @@ app.use(express.urlencoded({ extended: true }));
 
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 100,
+  max: Number(process.env.RATE_LIMIT_MAX) || 100, // nâng lên khi chạy test_api.py, xem TESTING.md
   message: 'Quá nhiều request, vui lòng thử lại sau.'
 });
 app.use('/api', limiter);

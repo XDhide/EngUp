@@ -11,10 +11,13 @@ backend/
 └── test/
     ├── test_api.py       <- test toàn bộ API bằng Python (tích hợp, cần server + DB)
     ├── helpers/
-    │   └── approval_fixtures.js   <- tạo/kiểm tra/dọn dữ liệu thử cho test duyệt nội dung
+    │   ├── approval_fixtures.js      <- tạo/kiểm tra/dọn dữ liệu thử cho test duyệt nội dung
+    │   └── admin_tests_fixtures.js   <- tạo/dọn lượt làm bài thử cho test thống kê đề thi
     └── unit/             <- unit test (node:test), KHÔNG cần MySQL
         ├── admin-approval.service.test.js
-        └── admin-approval.http.test.js
+        ├── admin-approval.http.test.js
+        ├── admin-tests.service.test.js
+        └── admin-tests.http.test.js
 ```
 
 ## 1. Cài đặt
@@ -107,7 +110,7 @@ npm run test:unit
 ```
 
 Dùng test runner có sẵn của Node (`node:test`, cần Node 18+), không thêm dependency.
-Hiện bao phủ module `admin-approval`: logic service (404 / 409 / transaction /
+Hiện bao phủ module `admin-approval` và `admin-tests`: logic service (404 / 409 / transaction /
 audit log) và tầng HTTP (JWT, phân quyền admin, validation, định dạng response).
 
 ## Test module duyệt nội dung (`/api/admin/content`)
@@ -125,9 +128,36 @@ nên test tự tạo dữ liệu thử trực tiếp vào DB qua `test/helpers/a
 (cần `node` trong PATH và `.env` trỏ đúng DB) rồi **tự dọn sạch** sau khi chạy.
 Nếu không tạo được dữ liệu thử, các kịch bản duyệt/từ chối được đánh dấu SKIP.
 
-> Lưu ý: `/api` đang giới hạn 100 request / 15 phút cho mỗi IP (`server.js`). Một lần chạy
-> toàn bộ `test_api.py` dùng khoảng 85 request, nên chạy lại liên tục sẽ gặp HTTP 429 —
-> khởi động lại server (bộ đếm nằm trong RAM) hoặc chờ 15 phút.
+## Test module quản trị đề thi (`/api/admin/tests`)
+
+Phần `=== 10. ADMIN TESTS ===` trong `test_api.py`:
+
+| Endpoint | Kiểm tra |
+|---|---|
+| `POST/PUT/DELETE /api/admin/tests/test-sets[/:id]` | 201 / 200, `data` = đề sau thao tác (DELETE trả đề vừa xoá), validation, 404, **409 khi xoá đề đã có lượt làm bài**, câu hỏi bị xoá theo đề |
+| `POST/PUT/DELETE /api/admin/tests/questions[/:id]` | như trên; `multiple_choice` bắt buộc có `options` (>= 2) + `correct_answer`, `fill_blank` bắt buộc có `correct_answer`; PUT cập nhật từng phần và kiểm tra ràng buộc trên bản ghi đã gộp |
+| `GET /api/admin/tests/attempts?test_set_id=` | `test_set_id` bắt buộc (400 / 404), `attempts[]` chỉ gồm `{user_id, score, band_score, status}` với điểm dạng số, `completion_rate` = % lượt đã nộp (0 nếu chưa có lượt nào) |
+
+Lượt làm bài của học viên được tạo trực tiếp vào DB qua `test/helpers/admin_tests_fixtures.js`
+(cần các tài khoản `student1/student2` do `npm run db:seed` tạo), và được dọn sạch sau khi chạy.
+
+## Giới hạn request khi chạy `test_api.py`
+
+`/api` giới hạn 100 request / 15 phút cho mỗi IP, nhưng một lần chạy toàn bộ `test_api.py`
+dùng khoảng **120 request**. Hãy khởi động server với giới hạn cao hơn (biến môi trường
+`RATE_LIMIT_MAX`, mặc định vẫn là 100 nên không ảnh hưởng khi chạy thật):
+
+```powershell
+# PowerShell (Windows)
+$env:RATE_LIMIT_MAX=1000; npm run start
+```
+
+```bash
+# bash / macOS / Linux
+RATE_LIMIT_MAX=1000 npm run start
+```
+
+Nếu quên, các test cuối sẽ FAIL với HTTP 429 và báo rõ nguyên nhân này.
 
 ## Đọc kết quả test
 
