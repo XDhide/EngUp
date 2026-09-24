@@ -14,7 +14,9 @@
     "migrate:down": "node src/scripts/migrate.js down",
     "db:sync": "node src/scripts/syncDb.js",
     "db:sync:force": "node src/scripts/syncDb.js --force",
-    "db:seed": "node src/common/seed/seed.js"
+    "db:seed": "node src/common/seed/seed.js",
+    "test:unit": "node --test test/unit/admin-approval.service.test.js test/unit/admin-approval.http.test.js",
+    "test:api": "python test/test_api.py"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

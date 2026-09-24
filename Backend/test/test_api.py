@@ -36,6 +36,8 @@ KẾT QUẢ
 
 import argparse
 import json
+import os
+import subprocess
 import sys
 import time
 from datetime import datetime
@@ -684,6 +686,245 @@ class ApiTester:
         self.check("GET /stats/progress?range=invalid (-> 400)", resp is not None and resp.status_code == 400, resp)
 
     # ---------------------------------------------------------------
+    # 9. ADMIN CONTENT APPROVAL
+    # ---------------------------------------------------------------
+    def _run_fixture(self, mode, payload=None):
+        """Gọi test/helpers/approval_fixtures.js (tạo/kiểm tra/dọn dữ liệu thử trong DB).
+        Trả về (dict, None) nếu thành công hoặc (None, thông_báo_lỗi)."""
+        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        script = os.path.join(project_root, "test", "helpers", "approval_fixtures.js")
+        try:
+            proc = subprocess.run(
+                ["node", script, mode],
+                input=json.dumps(payload or {}),
+                capture_output=True, encoding="utf-8", cwd=project_root, timeout=60,
+            )
+        except FileNotFoundError:
+            return None, "Không tìm thấy lệnh 'node' trong PATH"
+        except subprocess.TimeoutExpired:
+            return None, "Helper chạy quá 60 giây"
+
+        lines = [ln for ln in proc.stdout.strip().splitlines() if ln.strip()]
+        if not lines:
+            return None, (proc.stderr.strip()[:200] or "Helper không in ra kết quả nào")
+        try:
+            data = json.loads(lines[-1])
+        except ValueError:
+            return None, f"Kết quả helper không phải JSON: {lines[-1][:200]}"
+        if proc.returncode != 0 or "error" in data:
+            return None, data.get("error", "Helper thất bại")
+        return data, None
+
+    def _check_db(self, name, condition, detail=""):
+        """Ghi kết quả một phép kiểm tra trực tiếp trên DB (không có HTTP response)."""
+        self.record(name, "PASS" if condition else "FAIL", detail)
+
+    def test_admin_content_approval(self):
+        print(f"\n{Colors.BOLD}=== 9. ADMIN CONTENT APPROVAL (/admin/content) ==={Colors.END}")
+        admin_token = self.state.get("admin_access_token")
+        student_token = self.state.get("student_access_token")
+        if not admin_token:
+            self.skip("Admin content approval tests", "Không có admin token")
+            return
+
+        base = "/admin/content"
+
+        # 9.1 Không có token -> 401
+        resp, err = self.request("GET", f"{base}/pending")
+        self.check("GET /admin/content/pending (không token -> 401)", resp is not None and resp.status_code == 401, resp)
+
+        # 9.2 Student -> 403 (cả 3 endpoint)
+        if student_token:
+            resp, err = self.request("GET", f"{base}/pending", token=student_token)
+            self.check("GET /admin/content/pending (student -> 403)", resp is not None and resp.status_code == 403, resp)
+            resp, err = self.request("PUT", f"{base}/1/approve", token=student_token)
+            self.check("PUT /admin/content/:id/approve (student -> 403)", resp is not None and resp.status_code == 403, resp)
+            resp, err = self.request("PUT", f"{base}/1/reject", token=student_token, json={"reject_reason": "x"})
+            self.check("PUT /admin/content/:id/reject (student -> 403)", resp is not None and resp.status_code == 403, resp)
+        else:
+            self.skip("Admin content approval (student -> 403)", "Không có student token")
+
+        # 9.3 Validation không cần dữ liệu thử
+        resp, err = self.request("GET", f"{base}/pending", token=admin_token, params={"type": "invalid"})
+        self.check("GET /admin/content/pending?type=invalid (-> 400)", resp is not None and resp.status_code == 400, resp)
+        resp, err = self.request("PUT", f"{base}/abc/approve", token=admin_token)
+        self.check("PUT /admin/content/abc/approve (id sai -> 400)", resp is not None and resp.status_code == 400, resp)
+        resp, err = self.request("PUT", f"{base}/99999999/approve", token=admin_token)
+        self.check("PUT /admin/content/99999999/approve (-> 404)", resp is not None and resp.status_code == 404, resp)
+        resp, err = self.request("PUT", f"{base}/99999999/reject", token=admin_token, json={"reject_reason": "x"})
+        self.check("PUT /admin/content/99999999/reject (-> 404)", resp is not None and resp.status_code == 404, resp)
+
+        # 9.4 Các kịch bản duyệt/từ chối cần dữ liệu thử (tạo thẳng vào DB qua helper Node)
+        fixture, ferr = self._run_fixture("create")
+        if not fixture:
+            self.skip(
+                "Kịch bản duyệt / từ chối nội dung",
+                f"Không tạo được dữ liệu thử ({ferr}). Cần 'node' trong PATH, .env trỏ đúng DB và đã chạy 'npm run migrate'.",
+            )
+            return
+
+        try:
+            self._approval_scenarios(base, admin_token, student_token, fixture)
+        finally:
+            _, cerr = self._run_fixture("cleanup", fixture)
+            if cerr:
+                print(f"{Colors.YELLOW}⚠️  Không dọn được dữ liệu thử: {cerr}{Colors.END}")
+
+    def _approval_scenarios(self, base, admin_token, student_token, fixture):
+        art_ok, art_no = fixture["articles"]      # bài đọc sẽ duyệt / sẽ từ chối
+        q_ok, q_no = fixture["questions"]         # câu hỏi sẽ duyệt / sẽ từ chối
+        all_queue_ids = [art_ok["queue_id"], art_no["queue_id"], q_ok["queue_id"], q_no["queue_id"]]
+
+        def items_of(resp):
+            data = self._data(resp) or {}
+            return data.get("items", []) if isinstance(data, dict) else []
+
+        def inspect_db():
+            data, e = self._run_fixture("inspect", {"queue_ids": all_queue_ids})
+            return data or {}, e
+
+        # --- GET /pending ---
+        resp, err = self.request("GET", f"{base}/pending", token=admin_token)
+        items = items_of(resp) if resp is not None else []
+        ids = {i.get("id") for i in items}
+        self.check(
+            "GET /admin/content/pending (admin -> 200, có đủ 4 yêu cầu thử)",
+            resp is not None and resp.status_code == 200 and set(all_queue_ids) <= ids,
+            resp,
+        )
+        shape_ok = bool(items) and all(set(i.keys()) == {"id", "content_type", "content_id", "created_at"} for i in items)
+        self._check_db("GET /admin/content/pending — mỗi item đúng 4 field {id, content_type, content_id, created_at}", shape_ok)
+
+        resp, err = self.request("GET", f"{base}/pending", token=admin_token, params={"type": "reading_article"})
+        items = items_of(resp) if resp is not None else []
+        ids = {i.get("id") for i in items}
+        self.check(
+            "GET /admin/content/pending?type=reading_article (chỉ bài đọc)",
+            resp is not None and resp.status_code == 200
+            and all(i.get("content_type") == "reading_article" for i in items)
+            and {art_ok["queue_id"], art_no["queue_id"]} <= ids
+            and not ({q_ok["queue_id"], q_no["queue_id"]} & ids),
+            resp,
+        )
+
+        resp, err = self.request("GET", f"{base}/pending", token=admin_token, params={"type": "test_question"})
+        items = items_of(resp) if resp is not None else []
+        ids = {i.get("id") for i in items}
+        self.check(
+            "GET /admin/content/pending?type=test_question (chỉ câu hỏi)",
+            resp is not None and resp.status_code == 200
+            and all(i.get("content_type") == "test_question" for i in items)
+            and {q_ok["queue_id"], q_no["queue_id"]} <= ids
+            and not ({art_ok["queue_id"], art_no["queue_id"]} & ids),
+            resp,
+        )
+
+        # --- APPROVE bài đọc: kiểm tra bằng chính API reading (404 -> 200) ---
+        reader = student_token or admin_token
+        resp, err = self.request("GET", f"/reading/articles/{art_ok['content_id']}", token=reader)
+        self.check("GET /reading/articles/:id (bài chưa duyệt -> 404)", resp is not None and resp.status_code == 404, resp)
+
+        resp, err = self.request("PUT", f"{base}/{art_ok['queue_id']}/approve", token=admin_token)
+        self.check(
+            "PUT /admin/content/:id/approve (reading_article -> 200, data=null)",
+            resp is not None and resp.status_code == 200 and resp.json().get("data") is None,
+            resp,
+        )
+
+        resp, err = self.request("GET", f"/reading/articles/{art_ok['content_id']}", token=reader)
+        self.check("GET /reading/articles/:id (sau khi duyệt -> 200)", resp is not None and resp.status_code == 200, resp)
+
+        db_state, e = inspect_db()
+        row = db_state.get(str(art_ok["queue_id"])) or {}
+        self._check_db(
+            "DB: queue approved + reading_articles.is_approved=true + reviewed_by/reviewed_at + 1 audit log",
+            row.get("status") == "approved" and row.get("content_is_approved") is True
+            and row.get("reviewed_by") is not None and row.get("reviewed_at_set") is True
+            and row.get("audit_count") == 1,
+            e or json.dumps(row),
+        )
+
+        resp, err = self.request("PUT", f"{base}/{art_ok['queue_id']}/approve", token=admin_token)
+        self.check("PUT /admin/content/:id/approve (đã duyệt rồi -> 409)", resp is not None and resp.status_code == 409, resp)
+
+        resp, err = self.request("PUT", f"{base}/{art_ok['queue_id']}/reject", token=admin_token, json={"reject_reason": "Muộn rồi"})
+        self.check("PUT /admin/content/:id/reject (đã duyệt rồi -> 409)", resp is not None and resp.status_code == 409, resp)
+
+        # --- APPROVE câu hỏi test ---
+        resp, err = self.request("PUT", f"{base}/{q_ok['queue_id']}/approve", token=admin_token)
+        self.check(
+            "PUT /admin/content/:id/approve (test_question -> 200, data=null)",
+            resp is not None and resp.status_code == 200 and resp.json().get("data") is None,
+            resp,
+        )
+        db_state, e = inspect_db()
+        row = db_state.get(str(q_ok["queue_id"])) or {}
+        self._check_db(
+            "DB: queue approved + test_questions.is_approved=true",
+            row.get("status") == "approved" and row.get("content_is_approved") is True,
+            e or json.dumps(row),
+        )
+
+        # --- REJECT: validation ---
+        target = art_no["queue_id"]
+        resp, err = self.request("PUT", f"{base}/{target}/reject", token=admin_token)
+        self.check("PUT /admin/content/:id/reject (không body -> 400)", resp is not None and resp.status_code == 400, resp)
+        resp, err = self.request("PUT", f"{base}/{target}/reject", token=admin_token, json={"reject_reason": "   "})
+        self.check("PUT /admin/content/:id/reject (reject_reason rỗng -> 400)", resp is not None and resp.status_code == 400, resp)
+        resp, err = self.request("PUT", f"{base}/{target}/reject", token=admin_token, json={"reject_reason": "a" * 501})
+        self.check("PUT /admin/content/:id/reject (reject_reason > 500 ký tự -> 400)", resp is not None and resp.status_code == 400, resp)
+
+        # --- REJECT bài đọc ---
+        reason = "Nội dung chưa chính xác"
+        resp, err = self.request("PUT", f"{base}/{target}/reject", token=admin_token, json={"reject_reason": f"  {reason}  "})
+        self.check(
+            "PUT /admin/content/:id/reject (reading_article -> 200, data=null)",
+            resp is not None and resp.status_code == 200 and resp.json().get("data") is None,
+            resp,
+        )
+        db_state, e = inspect_db()
+        row = db_state.get(str(target)) or {}
+        self._check_db(
+            "DB: queue rejected + lưu reject_reason (đã trim) + bài đọc vẫn is_approved=false + 1 audit log",
+            row.get("status") == "rejected" and row.get("reject_reason") == reason
+            and row.get("content_is_approved") is False and row.get("reviewed_by") is not None
+            and row.get("reviewed_at_set") is True and row.get("audit_count") == 1,
+            e or json.dumps(row, ensure_ascii=False),
+        )
+        resp, err = self.request("GET", f"/reading/articles/{art_no['content_id']}", token=reader)
+        self.check("GET /reading/articles/:id (bài bị từ chối vẫn -> 404)", resp is not None and resp.status_code == 404, resp)
+
+        resp, err = self.request("PUT", f"{base}/{target}/reject", token=admin_token, json={"reject_reason": "Lần 2"})
+        self.check("PUT /admin/content/:id/reject (đã từ chối rồi -> 409)", resp is not None and resp.status_code == 409, resp)
+        resp, err = self.request("PUT", f"{base}/{target}/approve", token=admin_token)
+        self.check("PUT /admin/content/:id/approve (đã từ chối rồi -> 409)", resp is not None and resp.status_code == 409, resp)
+
+        # --- REJECT câu hỏi test ---
+        resp, err = self.request("PUT", f"{base}/{q_no['queue_id']}/reject", token=admin_token, json={"reject_reason": "Sai đáp án"})
+        self.check(
+            "PUT /admin/content/:id/reject (test_question -> 200, data=null)",
+            resp is not None and resp.status_code == 200 and resp.json().get("data") is None,
+            resp,
+        )
+        db_state, e = inspect_db()
+        row = db_state.get(str(q_no["queue_id"])) or {}
+        self._check_db(
+            "DB: queue rejected + test_questions.is_approved vẫn false",
+            row.get("status") == "rejected" and row.get("reject_reason") == "Sai đáp án"
+            and row.get("content_is_approved") is False,
+            e or json.dumps(row, ensure_ascii=False),
+        )
+
+        # --- Hàng chờ không còn các yêu cầu đã xử lý ---
+        resp, err = self.request("GET", f"{base}/pending", token=admin_token)
+        ids = {i.get("id") for i in items_of(resp)} if resp is not None else set()
+        self.check(
+            "GET /admin/content/pending (sau khi xử lý: 4 yêu cầu thử đã biến mất)",
+            resp is not None and resp.status_code == 200 and not (set(all_queue_ids) & ids),
+            resp,
+        )
+
+    # ---------------------------------------------------------------
     # RUN ALL
     # ---------------------------------------------------------------
     def run_all(self):
@@ -709,6 +950,7 @@ class ApiTester:
         self.test_listening()
         self.test_writing()
         self.test_statistics()
+        self.test_admin_content_approval()
 
         self.print_summary()
 

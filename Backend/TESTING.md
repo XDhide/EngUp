@@ -9,7 +9,12 @@ backend/
 │       └── seed/
 │           └── seed.js   <- tạo dữ liệu mẫu (users, vocab, reading, listening, writing)
 └── test/
-    └── test_api.py       <- test toàn bộ API bằng Python
+    ├── test_api.py       <- test toàn bộ API bằng Python (tích hợp, cần server + DB)
+    ├── helpers/
+    │   └── approval_fixtures.js   <- tạo/kiểm tra/dọn dữ liệu thử cho test duyệt nội dung
+    └── unit/             <- unit test (node:test), KHÔNG cần MySQL
+        ├── admin-approval.service.test.js
+        └── admin-approval.http.test.js
 ```
 
 ## 1. Cài đặt
@@ -29,6 +34,17 @@ pip install requests --break-system-packages
 ```bash
 npm run db:sync
 ```
+
+Nếu database đã có sẵn từ trước, chạy migration để thêm phần mới của module
+`admin-approval` (an toàn khi chạy lại nhiều lần):
+
+```bash
+npm run migrate
+```
+
+Migration này (a) tạo bảng `admin_content_approval_queue` nếu chưa có và
+(b) thêm cột `test_questions.is_approved` (mặc định `true`, nên các câu hỏi hiện có
+vẫn hiển thị như cũ). Rollback từng bước bằng `npm run migrate:down`.
 
 ## 3. Seed dữ liệu mẫu
 
@@ -83,6 +99,35 @@ khi gặp mã 502:
 
 Nếu bạn cấu hình đầy đủ các biến trên, test script sẽ kiểm tra các API này
 như bình thường (mong đợi status `201`).
+
+## Unit test (không cần DB / server)
+
+```bash
+npm run test:unit
+```
+
+Dùng test runner có sẵn của Node (`node:test`, cần Node 18+), không thêm dependency.
+Hiện bao phủ module `admin-approval`: logic service (404 / 409 / transaction /
+audit log) và tầng HTTP (JWT, phân quyền admin, validation, định dạng response).
+
+## Test module duyệt nội dung (`/api/admin/content`)
+
+Phần `=== 9. ADMIN CONTENT APPROVAL ===` trong `test_api.py` kiểm tra đủ 3 endpoint:
+
+| Endpoint | Kiểm tra |
+|---|---|
+| `GET /api/admin/content/pending[?type=]` | 401 / 403, lọc theo `type`, `type` sai -> 400, shape `{id, content_type, content_id, created_at}` |
+| `PUT /api/admin/content/:id/approve` | 200 + `data=null`, `is_approved=true` ở bảng nội dung, 404, 409 khi xử lý lại |
+| `PUT /api/admin/content/:id/reject` | 200 + `data=null`, `reject_reason` bắt buộc (<= 500 ký tự), 404, 409 |
+
+Hiện chưa có API nào để đưa nội dung vào hàng chờ (ngoài `POST /reading/generate` cần AI thật),
+nên test tự tạo dữ liệu thử trực tiếp vào DB qua `test/helpers/approval_fixtures.js`
+(cần `node` trong PATH và `.env` trỏ đúng DB) rồi **tự dọn sạch** sau khi chạy.
+Nếu không tạo được dữ liệu thử, các kịch bản duyệt/từ chối được đánh dấu SKIP.
+
+> Lưu ý: `/api` đang giới hạn 100 request / 15 phút cho mỗi IP (`server.js`). Một lần chạy
+> toàn bộ `test_api.py` dùng khoảng 85 request, nên chạy lại liên tục sẽ gặp HTTP 429 —
+> khởi động lại server (bộ đếm nằm trong RAM) hoặc chờ 15 phút.
 
 ## Đọc kết quả test
 
