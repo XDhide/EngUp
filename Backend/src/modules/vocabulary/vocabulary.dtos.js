@@ -23,19 +23,28 @@ function toWordDto(word) {
 function toWordListItemDto(word) {
   return {
     id: word.id,
+    topic_id: word.topic_id,
     word: word.word,
     phonetic: word.phonetic,
     meaning: word.meaning,
     example_sentence: word.example_sentence,
-    audio_url: word.audio_url
+    audio_url: word.audio_url,
+    difficulty: word.difficulty
   };
 }
 
 function toReviewCardDto(card) {
   return {
     card_id: card.id,
+    word_id: card.word_id,
     word: card.word ? card.word.word : null,
     meaning: card.word ? card.word.meaning : null,
+    phonetic: card.word ? card.word.phonetic : null,
+    example_sentence: card.word ? card.word.example_sentence : null,
+    audio_url: card.word ? card.word.audio_url : null,
+    difficulty: card.word ? card.word.difficulty : null,
+    interval_days: card.interval_days,
+    repetitions: card.repetitions,
     recall_probability: card.recall_probability,
     next_review_at: card.next_review_at
   };

@@ -37,6 +37,7 @@ async function findAllByUser(userId, { source_type, tag, date_from, date_to } = 
 
   return PersonalNotebookEntry.findAll({
     where: andConditions.length > 0 ? { [Op.and]: [where, ...andConditions] } : where,
+    include: [{ model: VocabularyWord, as: 'word' }],
     order: [['created_at', 'DESC']]
   });
 }

@@ -248,6 +248,99 @@ async function seedWriting() {
   return createdPrompts;
 }
 
+async function seedTests() {
+  const setsData = [
+    {
+      exam_type: 'IELTS',
+      section: 'reading',
+      title: 'IELTS Reading Mini Test 1',
+      time_limit_minutes: 10,
+      questions: [
+        {
+          question_text: 'What is the main idea of the passage?',
+          question_type: 'multiple_choice',
+          options: ['A. Cities are getting quieter', 'B. Remote work changes how people live', 'C. Offices are growing bigger', 'D. Travel is becoming cheaper'],
+          correct_answer: 'B',
+          passage_text:
+            'Remote work has changed the way many people organise their lives. Instead of commuting every day, ' +
+            'employees can choose where to live and how to structure their working hours.',
+          order_index: 1
+        },
+        {
+          question_text: 'According to the passage, employees no longer need to ___ every day.',
+          question_type: 'fill_blank',
+          correct_answer: 'commute',
+          passage_text:
+            'Remote work has changed the way many people organise their lives. Instead of commuting every day, ' +
+            'employees can choose where to live and how to structure their working hours.',
+          order_index: 2
+        },
+        {
+          question_text: 'Which of the following can employees now choose?',
+          question_type: 'multiple_choice',
+          options: ['A. Their salary', 'B. Their manager', 'C. Where to live', 'D. Their job title'],
+          correct_answer: 'C',
+          order_index: 3
+        }
+      ]
+    },
+    {
+      exam_type: 'TOEIC',
+      section: 'grammar',
+      title: 'TOEIC Part 5 Quick Practice',
+      time_limit_minutes: 5,
+      questions: [
+        {
+          question_text: 'The manager asked all employees ___ the report by Friday.',
+          question_type: 'multiple_choice',
+          options: ['A. submit', 'B. to submit', 'C. submitting', 'D. submitted'],
+          correct_answer: 'B',
+          order_index: 1
+        },
+        {
+          question_text: 'Our new product will be launched ___ next month.',
+          question_type: 'multiple_choice',
+          options: ['A. in', 'B. at', 'C. on', 'D. sometime'],
+          correct_answer: 'D',
+          order_index: 2
+        }
+      ]
+    },
+    {
+      exam_type: 'IELTS',
+      section: 'writing',
+      title: 'IELTS Writing Task 2 Practice',
+      time_limit_minutes: 40,
+      questions: [
+        {
+          question_text:
+            'Some people think that learning a foreign language is more useful than studying other subjects. ' +
+            'To what extent do you agree or disagree? Write at least 250 words.',
+          question_type: 'essay',
+          order_index: 1
+        }
+      ]
+    }
+  ];
+
+  let created = 0;
+  for (const s of setsData) {
+    const { questions, ...setFields } = s;
+    const [testSet, wasCreated] = await db.TestSet.findOrCreate({
+      where: { title: s.title },
+      defaults: setFields
+    });
+    if (wasCreated) {
+      created += 1;
+      for (const q of questions) {
+        await db.TestQuestion.create({ test_set_id: testSet.id, is_approved: true, ...q });
+      }
+    }
+  }
+
+  console.log(`✅ Tests: ${setsData.length} đề thi mẫu (${created} đề mới)`);
+}
+
 async function main() {
   try {
     console.log('⏳ Đang kết nối tới MySQL...');
@@ -259,6 +352,7 @@ async function main() {
     await seedReading();
     await seedListening();
     await seedWriting();
+    await seedTests();
 
     console.log('\n🎉 Seed dữ liệu mẫu hoàn tất!');
     console.log('----------------------------------------');
