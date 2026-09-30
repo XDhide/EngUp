@@ -1,6 +1,4 @@
 const express = require('express');
-const router = express.Router();
-
 const readingController = require('./reading.controller');
 const {
   validateListArticlesQuery,
@@ -9,6 +7,8 @@ const {
   validateGenerateArticle
 } = require('./reading.validation');
 const authenticateJWT = require('../../common/middlewares/auth.middleware');
+
+const router = express.Router();
 
 router.get('/articles', authenticateJWT, validateListArticlesQuery, readingController.getArticles);
 router.get('/articles/:id', authenticateJWT, validateIdParam, readingController.getArticleDetail);

@@ -1,21 +1,31 @@
-import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
+import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { useColorScheme } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
+import { useEffect } from 'react';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { AuthProvider } from '@/context/AuthContext';
+import { Colors } from '@/constants/design';
 
 SplashScreen.preventAutoHideAsync();
-SplashScreen.hideAsync();
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
+  useEffect(() => {
+    SplashScreen.hideAsync();
+  }, []);
+
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="index" options={{ headerShown: false }} />
-        <Stack.Screen name="login" options={{ headerShown: false }} />
-        <Stack.Screen name="menu" options={{ headerShown: false }} />
-        <Stack.Screen name="vocabulary" options={{ headerShown: false }} />
-        <Stack.Screen name="practice" options={{ headerShown: false }} />
-      </Stack>
-    </ThemeProvider>
+    <SafeAreaProvider>
+      <AuthProvider>
+        <StatusBar style="dark" />
+        <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: Colors.surface } }}>
+          {/* Auth */}
+          <Stack.Screen name="login" />
+          {/* Main tabs */}
+          <Stack.Screen name="(tabs)" />
+          {/* Detail screens (stack) */}
+          <Stack.Screen name="(screens)" />
+        </Stack>
+      </AuthProvider>
+    </SafeAreaProvider>
   );
 }

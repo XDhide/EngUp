@@ -22,9 +22,8 @@ async function getArticleDetail(req, res, next) {
 
 async function submitArticle(req, res, next) {
   try {
-    const { answers } = req.body;
-    const data = await readingService.submitArticle(req.user.id, req.params.id, answers);
-    return successResponse(res, { message: 'Chấm điểm bài đọc thành công', data, statusCode: 200 });
+    const data = await readingService.submitArticle(req.user.id, req.params.id, req.body.answers);
+    return successResponse(res, { message: 'Nộp bài đọc hiểu thành công', data, statusCode: 200 });
   } catch (err) {
     next(err);
   }
@@ -34,7 +33,7 @@ async function generateArticle(req, res, next) {
   try {
     const { topic, difficulty } = req.body;
     const data = await readingService.generateArticle(req.user, { topic, difficulty });
-    return successResponse(res, { message: 'Sinh bài đọc bằng AI thành công', data, statusCode: 201 });
+    return successResponse(res, { message: 'Sinh bài đọc bằng AI thành công, đang chờ duyệt', data, statusCode: 201 });
   } catch (err) {
     next(err);
   }

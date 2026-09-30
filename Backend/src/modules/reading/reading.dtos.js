@@ -3,16 +3,7 @@ function toArticleListItemDto(article) {
     id: article.id,
     title: article.title,
     difficulty: article.difficulty,
-    topic: article.topic,
-    is_ai_generated: article.is_ai_generated
-  };
-}
-
-function toQuestionPublicDto(question) {
-  return {
-    id: question.id,
-    question_text: question.question_text,
-    options: question.options
+    topic: article.topic
   };
 }
 
@@ -21,19 +12,11 @@ function toArticleDetailDto(article) {
     id: article.id,
     title: article.title,
     content: article.content,
-    difficulty: article.difficulty,
-    topic: article.topic,
-    questions: (article.questions || []).map(toQuestionPublicDto)
-  };
-}
-
-function toQuestionAdminDto(question) {
-  return {
-    id: question.id,
-    question_text: question.question_text,
-    options: question.options,
-    correct_answer: question.correct_answer,
-    explanation: question.explanation
+    questions: (article.questions || []).map((q) => ({
+      id: q.id,
+      question_text: q.question_text,
+      options: q.options
+    }))
   };
 }
 
@@ -46,7 +29,13 @@ function toArticleAdminDto(article) {
     topic: article.topic,
     is_ai_generated: article.is_ai_generated,
     is_approved: article.is_approved,
-    questions: (article.questions || []).map(toQuestionAdminDto)
+    questions: (article.questions || []).map((q) => ({
+      id: q.id,
+      question_text: q.question_text,
+      options: q.options,
+      correct_answer: q.correct_answer,
+      explanation: q.explanation
+    }))
   };
 }
 
