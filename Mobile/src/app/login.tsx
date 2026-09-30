@@ -1,240 +1,177 @@
-import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import React, { useState } from 'react';
 import {
+  ScrollView,
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
-  StyleSheet,
-  TextInput,
-  useColorScheme,
-  View,
 } from 'react-native';
+import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Colors, Spacing } from '@/constants/theme';
+import { Colors, Typography, Spacing, Rounded } from '../constants/theme';
+import { useAuth } from '../context/AuthContext';
+import { AppInput } from '../components/common/AppInput';
+import { AppButton } from '../components/common/AppButton';
+import { ErrorBanner } from '../components/common/ErrorBanner';
 
 export default function LoginScreen() {
   const router = useRouter();
+  const { login } = useAuth();
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [emailFocused, setEmailFocused] = useState(false);
-  const [passwordFocused, setPasswordFocused] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  const scheme = useColorScheme();
-  const colors = Colors[scheme === 'unspecified' ? 'light' : (scheme ?? 'light')];
+  const handleLogin = async () => {
+    if (!email.trim() || !password.trim()) {
+      setError('Vui lòng nhập đầy đủ email và mật khẩu');
+      return;
+    }
 
-  const handleLogin = () => {
-    // TODO: thêm xác thực thật ở đây
-    router.replace('/menu');
+    setError(null);
+    setLoading(true);
+
+    try {
+      await login({ email: email.trim(), password });
+      router.replace('/(tabs)');
+    } catch (err: any) {
+      setError(err.message || 'Email hoặc mật khẩu không đúng');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <KeyboardAvoidingView
-          style={styles.keyboardView}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    <SafeAreaView style={styles.safeArea}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={styles.keyboardAvoid}
+      >
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
         >
-          {/* Logo / Header */}
+          {/* Brand Header */}
           <View style={styles.header}>
-            <View style={styles.logoCircle}>
-              <ThemedText style={styles.logoText}>E</ThemedText>
-            </View>
-            <ThemedText type="title" style={styles.appName}>
-              EnglishLab
-            </ThemedText>
-            <ThemedText type="small" themeColor="textSecondary" style={styles.subtitle}>
-              Học tiếng Anh mỗi ngày
-            </ThemedText>
+            <Text style={styles.brandTitle}>EngUp</Text>
+            <Text style={styles.brandSubtitle}>
+              Học tiếng Anh thông minh, nhớ lâu hơn
+            </Text>
           </View>
 
           {/* Form */}
           <View style={styles.form}>
-            <View style={styles.inputGroup}>
-              <ThemedText type="smallBold" style={styles.label}>
-                Email
-              </ThemedText>
-              <TextInput
-                style={[
-                  styles.input,
-                  {
-                    backgroundColor: colors.backgroundElement,
-                    color: colors.text,
-                    borderColor: emailFocused ? '#4A90D9' : 'transparent',
-                  },
-                ]}
-                placeholder="Nhập email của bạn"
-                placeholderTextColor={colors.textSecondary}
-                value={email}
-                onChangeText={setEmail}
-                onFocus={() => setEmailFocused(true)}
-                onBlur={() => setEmailFocused(false)}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-            </View>
+            <AppInput
+              label="Email"
+              placeholder="vidu@email.com"
+              keyboardType="email-address"
+              autoCapitalize="none"
+              value={email}
+              onChangeText={(text) => {
+                setEmail(text);
+                setError(null);
+              }}
+            />
 
-            <View style={styles.inputGroup}>
-              <ThemedText type="smallBold" style={styles.label}>
-                Mật khẩu
-              </ThemedText>
-              <TextInput
-                style={[
-                  styles.input,
-                  {
-                    backgroundColor: colors.backgroundElement,
-                    color: colors.text,
-                    borderColor: passwordFocused ? '#4A90D9' : 'transparent',
-                  },
-                ]}
-                placeholder="Nhập mật khẩu"
-                placeholderTextColor={colors.textSecondary}
-                value={password}
-                onChangeText={setPassword}
-                onFocus={() => setPasswordFocused(true)}
-                onBlur={() => setPasswordFocused(false)}
-                secureTextEntry
-              />
-            </View>
+            <AppInput
+              label="Mật khẩu"
+              placeholder="Nhập mật khẩu của bạn"
+              isPassword
+              value={password}
+              onChangeText={(text) => {
+                setPassword(text);
+                setError(null);
+              }}
+            />
 
-            <Pressable style={styles.forgotPassword}>
-              <ThemedText type="small" style={styles.linkText}>
-                Quên mật khẩu?
-              </ThemedText>
-            </Pressable>
+            {error && <ErrorBanner message={error} />}
 
-            {/* Nút Đăng nhập */}
-            <Pressable
-              style={({ pressed }) => [
-                styles.loginButton,
-                { opacity: pressed ? 0.85 : 1 },
-              ]}
+            <AppButton
+              title="Đăng nhập"
               onPress={handleLogin}
-            >
-              <ThemedText style={styles.loginButtonText}>Đăng nhập</ThemedText>
-            </Pressable>
+              loading={loading}
+              style={styles.loginBtn}
+            />
 
-            {/* Divider */}
-            <View style={styles.divider}>
-              <View style={[styles.dividerLine, { backgroundColor: colors.backgroundElement }]} />
-              <ThemedText type="small" themeColor="textSecondary" style={styles.dividerText}>
-                hoặc
-              </ThemedText>
-              <View style={[styles.dividerLine, { backgroundColor: colors.backgroundElement }]} />
-            </View>
-
-            {/* Đăng ký */}
-            <View style={styles.registerRow}>
-              <ThemedText type="small" themeColor="textSecondary">
-                Chưa có tài khoản?{' '}
-              </ThemedText>
-              <Pressable>
-                <ThemedText type="small" style={styles.linkText}>
-                  Đăng ký ngay
-                </ThemedText>
-              </Pressable>
+            <View style={styles.registerPrompt}>
+              <Text style={styles.registerText}>Chưa có tài khoản? </Text>
+              <TouchableOpacity onPress={() => router.push('/register')} activeOpacity={0.7}>
+                <Text style={styles.registerLink}>Đăng ký</Text>
+              </TouchableOpacity>
             </View>
           </View>
-        </KeyboardAvoidingView>
-      </SafeAreaView>
-    </ThemedView>
+
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
   safeArea: {
     flex: 1,
+    backgroundColor: Colors.surface,
   },
-  keyboardView: {
+  keyboardAvoid: {
     flex: 1,
-    justifyContent: 'center',
-    paddingHorizontal: Spacing.four,
-    gap: Spacing.five,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingHorizontal: Spacing.margin,
+    paddingVertical: Spacing.xl,
+    justifyContent: 'space-between',
   },
   header: {
-    alignItems: 'center',
-    gap: Spacing.two,
+    paddingTop: Spacing.md,
+    paddingBottom: Spacing.xl,
+    gap: Spacing.xs,
   },
-  logoCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#4A90D9',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: Spacing.two,
+  brandTitle: {
+    ...Typography.headlineLg,
+    fontSize: 38,
+    lineHeight: 44,
+    color: Colors.primaryContainer,
+    fontWeight: '800',
+    letterSpacing: -1,
   },
-  logoText: {
-    fontSize: 40,
-    fontWeight: '700',
-    color: '#ffffff',
-  },
-  appName: {
-    fontSize: 32,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-  subtitle: {
-    textAlign: 'center',
+  brandSubtitle: {
+    ...Typography.bodyMd,
+    color: Colors.onSurface,
+    opacity: 0.8,
   },
   form: {
-    gap: Spacing.three,
+    gap: Spacing.md,
   },
-  inputGroup: {
-    gap: Spacing.one,
+  loginBtn: {
+    marginTop: Spacing.xs,
   },
-  label: {
-    marginBottom: 2,
-  },
-  input: {
-    height: 52,
-    borderRadius: Spacing.two,
-    paddingHorizontal: Spacing.three,
-    fontSize: 16,
-    borderWidth: 2,
-  },
-  forgotPassword: {
-    alignSelf: 'flex-end',
-  },
-  linkText: {
-    color: '#4A90D9',
-    fontWeight: '600',
-  },
-  loginButton: {
-    backgroundColor: '#4A90D9',
-    height: 52,
-    borderRadius: Spacing.two,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: Spacing.one,
-  },
-  loginButtonText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  divider: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.two,
-    marginVertical: Spacing.one,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-  },
-  dividerText: {
-    paddingHorizontal: Spacing.one,
-  },
-  registerRow: {
+  registerPrompt: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
+    paddingTop: Spacing.md,
+  },
+  registerText: {
+    ...Typography.bodyMd,
+    color: Colors.onSurface,
+    opacity: 0.7,
+  },
+  registerLink: {
+    ...Typography.labelMd,
+    color: Colors.primary,
+    fontWeight: '700',
+  },
+  guestSection: {
+    alignItems: 'center',
+    paddingTop: Spacing.xl,
+    paddingBottom: Spacing.sm,
+  },
+  guestLink: {
+    ...Typography.labelMd,
+    color: Colors.secondary,
+    fontWeight: '600',
   },
 });

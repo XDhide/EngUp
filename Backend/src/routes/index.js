@@ -21,6 +21,8 @@ router.use('/reading', require('../modules/reading/reading.routes'));
 
 router.use('/listening', require('../modules/listening/listening.routes'));
 router.use('/writing', require('../modules/writing/writing.routes'));
+router.use('/tests', require('../modules/test-practice/test.routes'));
+router.use('/notifications', require('../modules/notifications/notifications.routes'));
 router.use('/vocabulary', vocabularyRouter);
 router.use('/review', reviewRouter);
 router.use('/stats', require('../modules/statistics/statistics.routes'));

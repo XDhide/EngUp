@@ -1,21 +1,45 @@
-import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
-import * as SplashScreen from 'expo-splash-screen';
-import { useColorScheme } from 'react-native';
+import React, { useEffect } from 'react';
+import { Stack, useRouter, useSegments } from 'expo-router';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { AuthProvider, useAuth } from '../context/AuthContext';
 
-SplashScreen.preventAutoHideAsync();
-SplashScreen.hideAsync();
+// Đưa người dùng về màn đăng nhập khi chưa có phiên (hoặc phiên vừa hết hạn).
+function AuthGate() {
+  const { isAuthenticated, isLoading } = useAuth();
+  const segments = useSegments();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (isLoading) return;
+    const first = segments[0] as string | undefined;
+    const inAuthScreens = first === 'login' || first === 'register';
+    if (!isAuthenticated && !inAuthScreens) router.replace('/login');
+  }, [isAuthenticated, isLoading, segments, router]);
+
+  return null;
+}
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="index" options={{ headerShown: false }} />
-        <Stack.Screen name="login" options={{ headerShown: false }} />
-        <Stack.Screen name="menu" options={{ headerShown: false }} />
-        <Stack.Screen name="vocabulary" options={{ headerShown: false }} />
-        <Stack.Screen name="practice" options={{ headerShown: false }} />
-      </Stack>
-    </ThemeProvider>
+    <SafeAreaProvider>
+      <AuthProvider>
+        <AuthGate />
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="login" />
+          <Stack.Screen name="register" />
+          <Stack.Screen name="placement-test" />
+          <Stack.Screen name="daily-words" />
+          <Stack.Screen name="flashcard" />
+          <Stack.Screen name="review-summary" />
+          <Stack.Screen name="topic-detail" />
+          <Stack.Screen name="reading-detail" />
+          <Stack.Screen name="listening-lesson" />
+          <Stack.Screen name="writing-editor" />
+          <Stack.Screen name="test-session" />
+          <Stack.Screen name="notifications" />
+        </Stack>
+      </AuthProvider>
+    </SafeAreaProvider>
   );
 }

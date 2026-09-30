@@ -32,7 +32,8 @@ module.exports = (sequelize) => {
       allowNull: true
     },
     band_score: {
-      type: DataTypes.DECIMAL(3, 1),
+      // IELTS 0-9 nhưng TOEIC quy đổi tới 990 (và AI chấm writing tới 200) nên cần tối đa 5 chữ số.
+      type: DataTypes.DECIMAL(5, 1),
       allowNull: true,
       comment: 'quy đổi IELTS band hoặc điểm TOEIC'
     },

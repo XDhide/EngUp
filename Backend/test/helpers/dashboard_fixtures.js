@@ -142,16 +142,39 @@ async function create() {
 }
 
 // Số liệu dashboard tính lại bằng SQL thuần — đối chứng độc lập với code của module.
-// input.now (ISO string, do create() trả về) neo lại đúng mốc thời gian đã dùng để tạo dữ liệu thử,
-// tránh trường hợp lệch ranh giới ngày UTC giữa lúc create() chạy và lúc expected() chạy (xem ghi chú ở create()).
-// Không có input.now (gọi độc lập, ví dụ echo "{}" | ... expected) -> vẫn dùng new Date() như cũ.
+//
+// "Hôm nay" phải được neo vào chính mốc thời gian đã dùng để tạo dữ liệu thử (reading_attempt của
+// create()), KHÔNG được tự lấy new Date() tại thời điểm expected() chạy: hai lệnh gọi node riêng biệt
+// (create rồi expected) có thể cách nhau vài giây tới vài phút (do các kịch bản khác chạy xen giữa), và
+// nếu khoảng đó vô tình vắt qua đúng ranh giới nửa đêm UTC thì "hôm nay" của hai bên sẽ là hai ngày
+// khác nhau -> daily_active_users lệch nhau dù code dashboard hoàn toàn đúng.
+//
+// Vì vậy, thay vì dựa vào input.now (có thể không được truyền, ví dụ khi gọi độc lập
+// echo "{}" | node .../dashboard_fixtures.js expected), hàm này tự đọc lại submitted_at của chính
+// reading_attempt vừa tạo trong create() (nhận diện qua bài đọc có tiêu đề bắt đầu bằng TAG) và dùng
+// đúng mốc đó làm "bây giờ". Nhờ vậy expected() luôn tự nhất quán với dữ liệu nó đang đối chiếu, bất kể
+// được gọi trễ bao lâu hay có được truyền input.now hay không.
 async function expected({ now: nowIso } = {}) {
   const one = async (sql, replacements = {}) => {
     const [row] = await db.sequelize.query(sql, { replacements, type: QueryTypes.SELECT });
     return Number(Object.values(row)[0]);
   };
 
-  const now = nowIso ? new Date(nowIso) : new Date();
+  let now;
+  if (nowIso) {
+    now = new Date(nowIso);
+  } else {
+    const [fixtureRow] = await db.sequelize.query(
+      `SELECT ra.submitted_at AS ts
+       FROM reading_attempts ra
+       JOIN reading_articles art ON art.id = ra.article_id
+       WHERE art.title LIKE :tagPattern
+       ORDER BY ra.id DESC
+       LIMIT 1`,
+      { replacements: { tagPattern: `${TAG}%` }, type: QueryTypes.SELECT }
+    );
+    now = fixtureRow ? new Date(fixtureRow.ts) : new Date();
+  }
   const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
   const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
   const range = { start, end };
