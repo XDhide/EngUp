@@ -97,7 +97,7 @@ export const TestPanel: React.FC<{ refreshKey: number; onLoaded: () => void }> =
                   style={styles.historyRow}
                   activeOpacity={0.8}
                   onPress={() =>
-                    router.push({ pathname: '/test-session', params: { attemptId: String(a.id), testId: String(a.test_set_id) } })
+                    router.push({ pathname: '/test-result', params: { attemptId: String(a.id), testId: String(a.test_set_id) } })
                   }
                 >
                   <View style={styles.historyText}>

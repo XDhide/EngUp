@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { ScrollView, View, Text, TouchableOpacity, StyleSheet, RefreshControl } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, Typography, Spacing, Rounded } from '../../constants/theme';
 import { AppHeader } from '../../components/common/AppHeader';
@@ -22,6 +22,7 @@ const isSkill = (v: unknown): v is Skill => SKILLS.some((s) => s.id === v);
 
 export default function PracticeScreen() {
   const params = useLocalSearchParams();
+  const router = useRouter();
   const [activeSkill, setActiveSkill] = useState<Skill>(isSkill(params.tab) ? params.tab : 'reading');
   // Kéo để làm mới: tăng khoá để panel đang hiển thị tự tải lại.
   const [refreshKey, setRefreshKey] = useState(0);
@@ -72,6 +73,10 @@ export default function PracticeScreen() {
           ))}
         </View>
 
+        <TouchableOpacity onPress={() => router.push(`/${activeSkill}-list` as never)} activeOpacity={0.7}>
+          <Text style={styles.openFull}>Mở toàn màn hình ›</Text>
+        </TouchableOpacity>
+
         {activeSkill === 'reading' && <ReadingPanel refreshKey={refreshKey} onLoaded={onLoaded} />}
         {activeSkill === 'listening' && <ListeningPanel refreshKey={refreshKey} onLoaded={onLoaded} />}
         {activeSkill === 'writing' && <WritingPanel refreshKey={refreshKey} onLoaded={onLoaded} />}
@@ -97,6 +102,7 @@ const styles = StyleSheet.create({
     borderRadius: Rounded.full,
   },
   srsPillText: { ...Typography.labelSm, color: Colors.onSecondaryContainer, fontWeight: '700' },
+  openFull: { ...Typography.labelSm, color: Colors.primary, fontWeight: '700', textAlign: 'right' },
   subtitle: { ...Typography.bodyMd, color: Colors.onSurfaceVariant },
   skillTabBar: {
     flexDirection: 'row',

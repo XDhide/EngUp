@@ -123,6 +123,15 @@ export default function ProfileScreen() {
             <Text style={styles.menuItemText}>Thông báo & nhắc học</Text>
             <Text style={styles.menuItemArrow}>›</Text>
           </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => router.push('/notification-settings')}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.menuItemText}>Cài đặt thông báo</Text>
+            <Text style={styles.menuItemArrow}>›</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Logout Button */}

@@ -38,6 +38,12 @@ export default function RootLayout() {
           <Stack.Screen name="writing-editor" />
           <Stack.Screen name="test-session" />
           <Stack.Screen name="notifications" />
+          <Stack.Screen name="reading-list" />
+          <Stack.Screen name="listening-list" />
+          <Stack.Screen name="writing-list" />
+          <Stack.Screen name="test-list" />
+          <Stack.Screen name="test-result" />
+          <Stack.Screen name="notification-settings" />
         </Stack>
       </AuthProvider>
     </SafeAreaProvider>
