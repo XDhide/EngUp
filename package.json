@@ -2,8 +2,12 @@
   "name": "engup",
   "version": "1.0.0",
   "private": true,
-  "description": "EngUp - English Learning App (Backend + Mobile)",
+  "description": "EngUp - English Learning App (Backend + Mobile + MLSever)",
   "scripts": {
-    "app": "node scripts/runApp.js"
+    "app": "node scripts/start.js",
+    "app:local": "node scripts/runApp.js",
+    "stop": "docker compose down",
+    "reset": "docker compose down -v",
+    "logs": "docker compose logs -f"
   }
 }

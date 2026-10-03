@@ -1,0 +1,72 @@
+# Chạy:  npm run app   (ở thư mục gốc)  — hoặc trực tiếp:  docker compose up -d --build
+# Gồm: MySQL + MLSever (FastAPI) + Backend + seed dữ liệu mẫu (chạy 1 lần rồi thoát)
+services:
+  mysql:
+    image: mysql:8.0
+    command: --default-time-zone=+00:00 --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-admin}
+      MYSQL_DATABASE: ${DB_NAME:-EngUp_database}
+      TZ: UTC
+    ports: ["${MYSQL_PORT:-3307}:3306"]      # 3307 để không đụng MySQL cài sẵn trên máy (3306)
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./database_schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro   # chỉ chạy lần đầu (volume rỗng)
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+    restart: unless-stopped
+
+  ml-server:
+    build: ./MLSever
+    environment:
+      DB_HOST: mysql
+      DB_PORT: "3306"
+      DB_USER: root
+      DB_PASSWORD: ${DB_PASSWORD:-admin}
+      DB_NAME: ${DB_NAME:-EngUp_database}
+      INTERNAL_API_KEY: ${ML_INTERNAL_KEY:-}
+    volumes:
+      - ./MLSever/models:/srv/models:ro      # chứa recall_model.joblib
+    ports: ["8000:8000"]
+    depends_on:
+      mysql: { condition: service_healthy }
+    restart: unless-stopped
+
+  backend:
+    build: ./Backend
+    env_file: ./Backend/.env
+    environment:                              # ghi đè các giá trị dành cho chạy ngoài Docker
+      PORT: "5000"
+      DB_HOST: mysql
+      DB_PORT: "3306"
+      DB_USER: root
+      DB_PASSWORD: ${DB_PASSWORD:-admin}
+      DB_NAME: ${DB_NAME:-EngUp_database}
+      ML_SERVICE_URL: http://ml-server:8000
+      RATE_LIMIT_MAX: "1000"
+    ports: ["5000:5000"]
+    depends_on:
+      mysql: { condition: service_healthy }
+      ml-server: { condition: service_healthy }
+    restart: unless-stopped
+
+  seed:                                       # dữ liệu mẫu (idempotent, chạy 1 lần rồi thoát)
+    build: ./Backend
+    env_file: ./Backend/.env
+    environment:
+      DB_HOST: mysql
+      DB_PORT: "3306"
+      DB_USER: root
+      DB_PASSWORD: ${DB_PASSWORD:-admin}
+      DB_NAME: ${DB_NAME:-EngUp_database}
+    command: ["node", "src/common/seed/seed.js"]
+    depends_on:
+      mysql: { condition: service_healthy }
+    restart: "no"
+
+volumes:
+  mysql_data:
