@@ -1,4 +1,5 @@
 import { apiRequest } from './apiClient';
+import { API_NOTEBOOK, API_NOTEBOOK_ENTRY } from './api';
 import { VocabularyWord } from './vocabularyService';
 
 // Khớp enum của backend (personal_notebook_entries.source_type).
@@ -29,7 +30,7 @@ export const notebookService = {
     }
     if (params.tag) query.append('tag', params.tag);
     const qs = query.toString();
-    const res = await apiRequest<{ entries: NotebookEntry[] }>(`/notebook${qs ? `?${qs}` : ''}`);
+    const res = await apiRequest<{ entries: NotebookEntry[] }>(`${API_NOTEBOOK}${qs ? `?${qs}` : ''}`);
     return { entries: res.entries ?? [] };
   },
 
@@ -40,20 +41,21 @@ export const notebookService = {
     note?: string;
     tags?: string[];
   }): Promise<NotebookEntry> {
-    return apiRequest<NotebookEntry>('/notebook', {
+    return apiRequest<NotebookEntry>(API_NOTEBOOK, {
       method: 'POST',
       body: JSON.stringify(data),
     });
   },
 
   async updateEntry(id: number, data: { note?: string; tags?: string[] }): Promise<NotebookEntry> {
-    return apiRequest<NotebookEntry>(`/notebook/${id}`, {
+    return apiRequest<NotebookEntry>(API_NOTEBOOK_ENTRY(id), {
       method: 'PUT',
       body: JSON.stringify(data),
     });
   },
 
   async deleteEntry(id: number): Promise<void> {
-    await apiRequest(`/notebook/${id}`, { method: 'DELETE' });
+    await apiRequest(API_NOTEBOOK_ENTRY(id), { method: 'DELETE' });
   },
 };
+

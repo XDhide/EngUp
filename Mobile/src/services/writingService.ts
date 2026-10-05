@@ -1,4 +1,9 @@
 import { apiRequest } from './apiClient';
+import {
+  API_WRITING_PROMPTS,
+  API_WRITING_SUBMISSIONS,
+  API_WRITING_SUBMISSION_DETAIL,
+} from './api';
 
 export type WritingType = 'free' | 'ielts' | 'toeic';
 
@@ -53,7 +58,7 @@ export const writingService = {
   async getAllPrompts(): Promise<WritingPrompt[]> {
     const groups = await Promise.all(
       WRITING_TYPES.map(async (t) => {
-        const r = await apiRequest<{ prompts: WritingPrompt[] }>(`/writing/prompts?type=${t.key}`);
+        const r = await apiRequest<{ prompts: WritingPrompt[] }>(`${API_WRITING_PROMPTS}?type=${t.key}`);
         return (r.prompts ?? []).map((p) => ({ ...p, type: t.key }));
       })
     );
@@ -61,7 +66,7 @@ export const writingService = {
   },
 
   async submit(promptId: number, content: string): Promise<WritingSubmitResult> {
-    const r = await apiRequest<WritingSubmitResult>('/writing/submissions', {
+    const r = await apiRequest<WritingSubmitResult>(API_WRITING_SUBMISSIONS, {
       method: 'POST',
       body: JSON.stringify({ prompt_id: promptId, content }),
     });
@@ -69,12 +74,12 @@ export const writingService = {
   },
 
   async getSubmissions(): Promise<WritingSubmission[]> {
-    const r = await apiRequest<{ submissions: WritingSubmission[] }>('/writing/submissions');
+    const r = await apiRequest<{ submissions: WritingSubmission[] }>(API_WRITING_SUBMISSIONS);
     return (r.submissions ?? []).map((s) => ({ ...s, ai_score: toScore(s.ai_score) }));
   },
 
   async getSubmission(id: number): Promise<WritingSubmissionDetail> {
-    const r = await apiRequest<WritingSubmissionDetail>(`/writing/submissions/${id}`);
+    const r = await apiRequest<WritingSubmissionDetail>(API_WRITING_SUBMISSION_DETAIL(id));
     return { ...r, ai_score: toScore(r.ai_score) };
   },
 };
