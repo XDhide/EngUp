@@ -1,0 +1,43 @@
+/* Design tokens theo stitch_engup_admin_panel/engup_qu_n_tr/DESIGN.md
+   Quy tắc: không icon, không shadow, bo góc 4px, lưới 8px. */
+:root {
+  --primary: #16a34a;
+  --primary-hover: #15803d;
+  --primary-light: #f0fdf4;
+  --text: #111827;
+  --text-muted: #6b7280;
+  --placeholder: #9ca3af;
+  --border: #e5e7eb;
+  --border-strong: #d1d5db;
+  --canvas: #f9fafb;
+  --panel: #ffffff;
+
+  --ok-text: #15803d; --ok-bg: #f0fdf4; --ok-border: #dcfce7;
+  --off-text: #4b5563; --off-bg: #f3f4f6; --off-border: #e5e7eb;
+  --warn-text: #b45309; --warn-bg: #fffbeb; --warn-border: #fef3c7;
+  --err-text: #b91c1c; --err-bg: #fef2f2; --err-border: #fee2e2;
+
+  --radius: 4px;
+  --radius-panel: 6px;
+  --sidebar-w: 240px;
+  --font: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --mono: ui-monospace, 'SF Mono', Consolas, monospace;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html, body, #root { height: 100%; }
+body {
+  margin: 0;
+  font: 400 14px/20px var(--font);
+  color: var(--text);
+  background: var(--canvas);
+  -webkit-font-smoothing: antialiased;
+}
+h1, h2, h3, p { margin: 0; }
+a { color: var(--primary); text-decoration: none; }
+a:hover { text-decoration: underline; }
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+code, .mono { font-family: var(--mono); font-size: 12px; }
