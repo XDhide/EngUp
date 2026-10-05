@@ -2,12 +2,15 @@
  * npm run app  (chạy ở thư mục gốc EngUp)
  *
  * Tự động:
- *   1) npm install  cho Backend  (nếu thiếu node_modules) – chạy inline, nhanh
- *   2) npm install  cho Mobile   (nếu thiếu node_modules) – chạy inline, nhanh
- *   Sau đó mở 3 cửa sổ terminal riêng – mỗi cửa sổ tự lo setup:
+ *   1) npm install cho Backend  (nếu thiếu node_modules hoặc thiếu thư viện)
+ *   2) npm install cho Mobile   (nếu thiếu node_modules hoặc thiếu thư viện)
+ *   3) npm install cho Website  (nếu thiếu node_modules hoặc thiếu thư viện)
+ *      + tự tạo Website/engup/.env từ .env.example nếu chưa có
+ *   Sau đó mở 4 cửa sổ terminal riêng – mỗi cửa sổ tự lo setup:
  *     ┌─ "EngUp Backend"  → npm run dev
  *     ├─ "EngUp Mobile"   → npm start
- *     └─ "EngUp MLSever"  → tạo venv (nếu cần) + pip install + uvicorn
+ *     ├─ "EngUp MLSever"  → tạo venv (nếu cần) + pip install + uvicorn
+ *     └─ "EngUp Website"  → npm run dev (Vite, mở được từ máy khác cùng mạng)
  *
  * Hỗ trợ: Windows (cmd), macOS (Terminal.app), Linux (gnome-terminal / xterm)
  */
@@ -19,6 +22,7 @@ const ROOT_DIR    = path.resolve(__dirname, '..');
 const BACKEND_DIR = path.join(ROOT_DIR, 'Backend');
 const MOBILE_DIR  = path.join(ROOT_DIR, 'Mobile');
 const ML_DIR      = path.join(ROOT_DIR, 'MLSever');
+const WEB_DIR     = path.join(ROOT_DIR, 'Website', 'engup');
 const isWin       = process.platform === 'win32';
 
 const ok  = (m) => console.log(`\x1b[32m[EngUp] ✔ ${m}\x1b[0m`);
@@ -26,7 +30,7 @@ const say = (m) => console.log(`\x1b[36m[EngUp]\x1b[0m ${m}`);
 const err = (m) => { console.error(`\x1b[31m[EngUp] ✖ ${m}\x1b[0m`); process.exit(1); };
 
 // ─── Kiểm tra thư mục tồn tại ────────────────────────────────────────────────
-for (const [name, dir] of [['Backend', BACKEND_DIR], ['Mobile', MOBILE_DIR], ['MLSever', ML_DIR]]) {
+for (const [name, dir] of [['Backend', BACKEND_DIR], ['Mobile', MOBILE_DIR], ['MLSever', ML_DIR], ['Website', WEB_DIR]]) {
   if (!fs.existsSync(dir)) err(`Không tìm thấy thư mục ${name}: ${dir}`);
 }
 
@@ -35,25 +39,58 @@ function runSync(cmd, args, cwd) {
   return spawnSync(cmd, args, { cwd, stdio: 'inherit', shell: true }).status === 0;
 }
 
-// ─── 1. npm install Backend (inline, nhanh) ───────────────────────────────────
-if (!fs.existsSync(path.join(BACKEND_DIR, 'node_modules'))) {
+// Cần npm install nếu chưa có node_modules, hoặc package.json có thư viện chưa được cài
+function needInstall(dir) {
+  const nm = path.join(dir, 'node_modules');
+  if (!fs.existsSync(nm)) return true;
+  try {
+    const pkg  = JSON.parse(fs.readFileSync(path.join(dir, 'package.json'), 'utf8'));
+    const deps = { ...pkg.dependencies, ...pkg.devDependencies };
+    return Object.keys(deps).some((d) => !fs.existsSync(path.join(nm, d)));
+  } catch {
+    return true;
+  }
+}
+
+// Website cần VITE_API_URL: tự tạo .env từ .env.example nếu chưa có
+function ensureWebEnv(dir) {
+  const env     = path.join(dir, '.env');
+  const example = path.join(dir, '.env.example');
+  if (!fs.existsSync(env) && fs.existsSync(example)) {
+    fs.copyFileSync(example, env);
+    ok('Website: đã tạo .env từ .env.example');
+  }
+}
+
+// ─── 1. npm install Backend ───────────────────────────────────────────────────
+if (needInstall(BACKEND_DIR)) {
   say('Cài thư viện Backend (npm install)...');
   if (!runSync('npm', ['install'], BACKEND_DIR)) err('npm install Backend thất bại.');
   ok('Backend: npm install xong.');
 } else {
-  ok('Backend: node_modules đã có, bỏ qua npm install.');
+  ok('Backend: thư viện đã đủ, bỏ qua npm install.');
 }
 
-// ─── 2. npm install Mobile (inline, nhanh) ────────────────────────────────────
-if (!fs.existsSync(path.join(MOBILE_DIR, 'node_modules'))) {
+// ─── 2. npm install Mobile ────────────────────────────────────────────────────
+if (needInstall(MOBILE_DIR)) {
   say('Cài thư viện Mobile (npm install, lần đầu có thể lâu)...');
   if (!runSync('npm', ['install'], MOBILE_DIR)) err('npm install Mobile thất bại.');
   ok('Mobile: npm install xong.');
 } else {
-  ok('Mobile: node_modules đã có, bỏ qua npm install.');
+  ok('Mobile: thư viện đã đủ, bỏ qua npm install.');
 }
 
-// ─── 3. Xây dựng lệnh khởi động cho mỗi terminal ────────────────────────────
+// ─── 3. npm install Website ───────────────────────────────────────────────────
+if (needInstall(WEB_DIR)) {
+  say('Cài thư viện Website (npm install)...');
+  if (!runSync('npm', ['install'], WEB_DIR)) err('npm install Website thất bại.');
+  ok('Website: npm install xong.');
+} else {
+  ok('Website: thư viện đã đủ, bỏ qua npm install.');
+}
+ensureWebEnv(WEB_DIR);
+
+// ─── 4. Xây dựng lệnh khởi động cho mỗi terminal ────────────────────────────
 //
 // MLSever: toàn bộ setup (venv + pip + uvicorn) chạy BÊN TRONG cửa sổ mới
 // để người dùng thấy tiến trình và không bị block terminal hiện tại.
@@ -96,6 +133,7 @@ const tasks = [
   { title: 'EngUp Backend', dir: BACKEND_DIR, cmd: 'npm run dev'  },
   { title: 'EngUp Mobile',  dir: MOBILE_DIR,  cmd: 'npm start'    },
   { title: 'EngUp MLSever', dir: ML_DIR,      cmd: mlCmd          },
+  { title: 'EngUp Website', dir: WEB_DIR,     cmd: 'npm run dev -- --host' },
 ];
 
 // ─── Hàm mở terminal mới ─────────────────────────────────────────────────────
@@ -150,9 +188,10 @@ tasks.forEach(launch);
 
 console.log(`
 \x1b[32m═══════════════════════════════════════════\x1b[0m
-\x1b[32m  EngUp đã mở 3 terminal:\x1b[0m
+\x1b[32m  EngUp đã mở 4 terminal:\x1b[0m
     📦 Backend  → http://localhost:5000/api
     📱 Mobile   → Expo Go (quét QR)
     🤖 MLSever  → http://localhost:8000/docs
+    🌐 Website  → http://localhost:5173  (admin@engup.test / Admin@123)
 \x1b[32m═══════════════════════════════════════════\x1b[0m
 `);
