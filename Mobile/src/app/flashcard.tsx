@@ -129,6 +129,7 @@ export default function FlashcardReviewScreen() {
               isFlipped={isFlipped}
               onFlip={() => setIsFlipped(!isFlipped)}
               srsStage={currentCard.repetitions || 1}
+              recallProbability={currentCard.recall_probability}
             />
 
             <View style={styles.recallSection}>

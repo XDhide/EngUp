@@ -8,6 +8,7 @@ interface SRSFlashcardProps {
   isFlipped: boolean;
   onFlip: () => void;
   srsStage?: number;
+  recallProbability?: number | null;
 }
 
 export const SRSFlashcard: React.FC<SRSFlashcardProps> = ({
@@ -15,6 +16,7 @@ export const SRSFlashcard: React.FC<SRSFlashcardProps> = ({
   isFlipped,
   onFlip,
   srsStage = 1,
+  recallProbability,
 }) => {
   return (
     <TouchableOpacity
@@ -31,7 +33,11 @@ export const SRSFlashcard: React.FC<SRSFlashcardProps> = ({
                 {word.difficulty ? `${word.difficulty.toUpperCase()} · ` : ''}TỪ VỰNG
               </Text>
             </View>
-            <Text style={styles.srsLabel}>SRS CẤP {srsStage}</Text>
+            <Text style={styles.srsLabel}>
+              {recallProbability != null
+                ? `AI: ${Math.round(recallProbability * 100)}% NHỚ`
+                : `SRS CẤP ${srsStage}`}
+            </Text>
           </View>
 
           <View style={styles.centerContent}>
