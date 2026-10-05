@@ -20,8 +20,24 @@ Mobile/*.p12
 Mobile/*.key
 Mobile/*.mobileprovision
 
+# ==== Python / MLSever ====
+.venv/
+venv/
+env/
+ENV/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.coverage
+htmlcov/
+MLSever/.venv/
+MLSever/__pycache__/
+MLSever/.pytest_cache/
+
 # ==== IDE / OS ====
 .vscode/
 .idea/
 .DS_Store
-Thumbs.db
+Thumbs.db
