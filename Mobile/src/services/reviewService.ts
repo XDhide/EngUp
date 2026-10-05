@@ -9,6 +9,7 @@ export interface UserVocabularyCard {
   interval_days: number;
   repetitions: number;
   next_review_at: string | null;
+  recall_probability?: number | null;
   word: VocabularyWord;
 }
 
@@ -30,6 +31,7 @@ interface RawReviewCard {
   difficulty?: string | null;
   interval_days?: number;
   repetitions?: number;
+  recall_probability?: number | null;
   next_review_at: string | null;
 }
 
@@ -44,6 +46,7 @@ export const reviewService = {
         interval_days: c.interval_days ?? 0,
         repetitions: c.repetitions ?? 0,
         next_review_at: c.next_review_at,
+        recall_probability: c.recall_probability ?? null,
         word: {
           id: c.word_id ?? 0,
           topic_id: null,
