@@ -1,4 +1,5 @@
 import { apiRequest } from './apiClient';
+import { API_STATS_OVERVIEW, API_STATS_PROGRESS } from './api';
 
 export interface StatsOverview {
   total_words_learned: number;
@@ -26,7 +27,7 @@ const num = (v: unknown): number | null => {
 
 export const statsService = {
   async getOverview(): Promise<StatsOverview> {
-    const r = await apiRequest<Record<string, unknown>>('/stats/overview');
+    const r = await apiRequest<Record<string, unknown>>(API_STATS_OVERVIEW);
     return {
       total_words_learned: num(r.total_words_learned) ?? 0,
       total_reviews: num(r.total_reviews) ?? 0,
@@ -38,7 +39,7 @@ export const statsService = {
   },
 
   async getProgress(range: StatsRange = '7d'): Promise<{ timeline: ProgressTimelineItem[] }> {
-    const r = await apiRequest<{ timeline: ProgressTimelineItem[] }>(`/stats/progress?range=${range}`);
+    const r = await apiRequest<{ timeline: ProgressTimelineItem[] }>(`${API_STATS_PROGRESS}?range=${range}`);
     return {
       timeline: (r.timeline ?? []).map((t) => ({
         date: t.date,

@@ -1,4 +1,9 @@
 import { apiRequest } from './apiClient';
+import {
+  API_READING_ARTICLES,
+  API_READING_ARTICLE_DETAIL,
+  API_READING_ARTICLE_SUBMIT,
+} from './api';
 
 export interface ReadingQuestion {
   id: number;
@@ -52,12 +57,12 @@ export function parseOptions(options: unknown): ParsedOption[] {
 
 export const readingService = {
   async getArticles(): Promise<{ articles: ReadingArticleSummary[] }> {
-    const res = await apiRequest<{ articles: ReadingArticleSummary[] }>('/reading/articles');
+    const res = await apiRequest<{ articles: ReadingArticleSummary[] }>(API_READING_ARTICLES);
     return { articles: res.articles ?? [] };
   },
 
   async getArticleDetail(id: number): Promise<ReadingArticle> {
-    const res = await apiRequest<ReadingArticle>(`/reading/articles/${id}`);
+    const res = await apiRequest<ReadingArticle>(API_READING_ARTICLE_DETAIL(id));
     return { ...res, questions: res.questions ?? [] };
   },
 
@@ -65,7 +70,7 @@ export const readingService = {
     id: number,
     answers: Array<{ question_id: number; answer: string }>
   ): Promise<ReadingSubmitResult> {
-    const res = await apiRequest<Partial<ReadingSubmitResult>>(`/reading/articles/${id}/submit`, {
+    const res = await apiRequest<Partial<ReadingSubmitResult>>(API_READING_ARTICLE_SUBMIT(id), {
       method: 'POST',
       body: JSON.stringify({ answers }),
     });
@@ -77,3 +82,4 @@ export const readingService = {
     };
   },
 };
+

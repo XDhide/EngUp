@@ -1,4 +1,10 @@
 import { apiRequest } from './apiClient';
+import {
+  API_VOCABULARY_TOPICS,
+  API_VOCABULARY_WORDS,
+  API_VOCABULARY_NEW_WORDS,
+  API_VOCABULARY_DAILY_LIMIT,
+} from './api';
 
 export interface VocabularyTopic {
   id: number;
@@ -51,12 +57,12 @@ export const difficultyLabel = (d?: string | null): string => {
 
 export const vocabularyService = {
   async getTopics(): Promise<{ topics: VocabularyTopic[] }> {
-    const res = await apiRequest<{ topics: VocabularyTopic[] }>('/vocabulary/topics');
+    const res = await apiRequest<{ topics: VocabularyTopic[] }>(API_VOCABULARY_TOPICS);
     const topics = await Promise.all(
       res.topics.map(async (t) => {
         try {
           const w = await apiRequest<{ total: number }>(
-            `/vocabulary/words?topic_id=${t.id}&limit=1`
+            `${API_VOCABULARY_WORDS}?topic_id=${t.id}&limit=1`
           );
           return { ...t, total_words: w.total };
         } catch {
@@ -80,13 +86,13 @@ export const vocabularyService = {
     if (params.offset) query.append('offset', String(params.offset));
     const qs = query.toString();
     return apiRequest<{ words: VocabularyWord[]; total: number }>(
-      `/vocabulary/words${qs ? `?${qs}` : ''}`
+      `${API_VOCABULARY_WORDS}${qs ? `?${qs}` : ''}`
     );
   },
 
   async getNewWords(limit?: number): Promise<NewWordsResponse> {
     const res = await apiRequest<Partial<NewWordsResponse>>(
-      `/vocabulary/new-words${limit ? `?limit=${limit}` : ''}`
+      `${API_VOCABULARY_NEW_WORDS}${limit ? `?limit=${limit}` : ''}`
     );
     return {
       words: res.words ?? [],
@@ -96,9 +102,10 @@ export const vocabularyService = {
   },
 
   async updateDailyNewWordLimit(limit: number): Promise<{ daily_new_word_limit: number }> {
-    return apiRequest<{ daily_new_word_limit: number }>('/vocabulary/daily-new-word-limit', {
+    return apiRequest<{ daily_new_word_limit: number }>(API_VOCABULARY_DAILY_LIMIT, {
       method: 'PUT',
       body: JSON.stringify({ limit }),
     });
   },
 };
+

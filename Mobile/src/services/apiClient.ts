@@ -1,6 +1,7 @@
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import { Storage } from './storage';
+import { API_AUTH_LOGIN, API_AUTH_REGISTER, API_AUTH_REFRESH } from './api';
 
 const API_PORT = 5000;
 
@@ -49,7 +50,7 @@ export const setUnauthorizedHandler = (fn: (() => void) | null) => {
   unauthorizedHandler = fn;
 };
 
-const AUTH_ENDPOINTS = ['/auth/login', '/auth/register', '/auth/refresh'];
+const AUTH_ENDPOINTS = [API_AUTH_LOGIN, API_AUTH_REGISTER, API_AUTH_REFRESH];
 const isAuthEndpoint = (endpoint: string) => AUTH_ENDPOINTS.some((e) => endpoint.includes(e));
 
 let refreshPromise: Promise<string | null> | null = null;

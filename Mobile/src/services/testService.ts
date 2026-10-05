@@ -1,4 +1,13 @@
 import { apiRequest } from './apiClient';
+import {
+  API_TESTS,
+  API_TESTS_QUESTIONS,
+  API_TESTS_START,
+  API_TESTS_SUBMIT,
+  API_TESTS_SUBMIT_WRITING,
+  API_TESTS_ATTEMPTS,
+  API_TESTS_ATTEMPT_RESULT,
+} from './api';
 
 export type ExamType = 'IELTS' | 'TOEIC';
 
@@ -68,7 +77,7 @@ export const testService = {
     const groups = await Promise.all(
       types.map(async (t) => {
         const r = await apiRequest<{ test_sets: Omit<TestSetSummary, 'exam_type'>[] }>(
-          `/tests?exam_type=${t}`
+          `${API_TESTS}?exam_type=${t}`
         );
         return (r.test_sets ?? []).map((s) => ({ ...s, exam_type: t }));
       })
@@ -77,12 +86,12 @@ export const testService = {
   },
 
   async getQuestions(testSetId: number): Promise<TestQuestion[]> {
-    const r = await apiRequest<{ questions: TestQuestion[] }>(`/tests/${testSetId}/questions`);
+    const r = await apiRequest<{ questions: TestQuestion[] }>(API_TESTS_QUESTIONS(testSetId));
     return [...(r.questions ?? [])].sort((a, b) => a.order_index - b.order_index);
   },
 
   async start(testSetId: number): Promise<StartAttemptResult> {
-    return apiRequest<StartAttemptResult>(`/tests/${testSetId}/start`, { method: 'POST' });
+    return apiRequest<StartAttemptResult>(API_TESTS_START(testSetId), { method: 'POST' });
   },
 
   async submit(
@@ -90,7 +99,7 @@ export const testService = {
     attemptId: number,
     answers: Array<{ question_id: number; answer: string }>
   ): Promise<{ score: number | null; band_score: number | null }> {
-    const r = await apiRequest<{ score: unknown; band_score: unknown }>(`/tests/${testSetId}/submit`, {
+    const r = await apiRequest<{ score: unknown; band_score: unknown }>(API_TESTS_SUBMIT(testSetId), {
       method: 'POST',
       body: JSON.stringify({ attempt_id: attemptId, answers }),
     });
@@ -103,14 +112,14 @@ export const testService = {
     content: string
   ): Promise<{ band_score: number | null; feedback: unknown }> {
     const r = await apiRequest<{ band_score: unknown; feedback: unknown }>(
-      `/tests/${testSetId}/submit-writing`,
+      API_TESTS_SUBMIT_WRITING(testSetId),
       { method: 'POST', body: JSON.stringify({ attempt_id: attemptId, content }) }
     );
     return { band_score: toNum(r.band_score), feedback: r.feedback };
   },
 
   async getAttempts(): Promise<AttemptSummary[]> {
-    const r = await apiRequest<{ attempts: AttemptSummary[] }>('/tests/attempts');
+    const r = await apiRequest<{ attempts: AttemptSummary[] }>(API_TESTS_ATTEMPTS);
     return (r.attempts ?? []).map((a) => ({
       ...a,
       score: toNum(a.score),
@@ -119,7 +128,7 @@ export const testService = {
   },
 
   async getResult(attemptId: number): Promise<AttemptResult> {
-    const r = await apiRequest<AttemptResult>(`/tests/attempts/${attemptId}/result`);
+    const r = await apiRequest<AttemptResult>(API_TESTS_ATTEMPT_RESULT(attemptId));
     return {
       ...r,
       score: toNum(r.score),
@@ -128,3 +137,4 @@ export const testService = {
     };
   },
 };
+

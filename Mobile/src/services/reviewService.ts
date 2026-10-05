@@ -1,5 +1,6 @@
 import { apiRequest } from './apiClient';
 import { VocabularyWord } from './vocabularyService';
+import { API_REVIEW_TODAY, API_REVIEW_SUBMIT } from './api';
 
 /** Thẻ ôn tập đã được chuẩn hoá cho UI (word là object đầy đủ). */
 export interface UserVocabularyCard {
@@ -34,7 +35,7 @@ interface RawReviewCard {
 
 export const reviewService = {
   async getTodayReviews(): Promise<{ cards: UserVocabularyCard[]; count: number }> {
-    const res = await apiRequest<{ cards: RawReviewCard[] }>('/review/today');
+    const res = await apiRequest<{ cards: RawReviewCard[] }>(API_REVIEW_TODAY);
     const cards: UserVocabularyCard[] = (res.cards ?? [])
       .filter((c) => !!c.word)
       .map((c) => ({
@@ -62,7 +63,7 @@ export const reviewService = {
     result: ReviewResultType;
     response_time_ms?: number;
   }): Promise<SubmitReviewResponse> {
-    return apiRequest<SubmitReviewResponse>('/review/submit', {
+    return apiRequest<SubmitReviewResponse>(API_REVIEW_SUBMIT, {
       method: 'POST',
       body: JSON.stringify(data),
     });
