@@ -1,3 +1,24 @@
+# ⚡ Chạy nhanh (1 lệnh)
+
+Yêu cầu: **Docker Desktop** (đang bật) và **Node.js 20+**. Đứng ở thư mục gốc (cùng cấp `Backend/`, `Mobile/`, `MLSever/`):
+
+```bash
+npm run app
+```
+Lệnh này tự: build & chạy MySQL + MLSever (FastAPI, nạp `MLSever/models/recall_model.joblib`) + Backend, nạp dữ liệu mẫu, rồi mở Expo cho Mobile (quét QR bằng Expo Go).
+
+| Lệnh | Việc |
+|---|---|
+| `npm run app` | chạy tất cả |
+| `npm run app -- --no-mobile` | chỉ chạy MySQL + ML + Backend |
+| `npm run stop` | tắt Docker |
+| `npm run reset` | tắt và XOÁ database (nạp lại schema + seed lần sau) |
+| `npm run logs` | xem log |
+
+Tài khoản mẫu: `student1@engup.test / Student@123`. Swagger ML: http://localhost:8000/docs
+
+---
+
 # EngUp — English Learning App
 
 Ứng dụng học tiếng Anh gồm 2 phần: **Backend** (Node.js + Express + MySQL) và **Mobile** (Expo + React Native + TypeScript).
