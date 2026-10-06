@@ -6,6 +6,7 @@
   "scripts": {
     "app": "node scripts/runApp.js",
     "app:docker": "node scripts/start.js",
+    "app:reset": "node scripts/resetApp.js",
     "stop": "docker compose down",
     "reset": "docker compose down -v",
     "logs": "docker compose logs -f"

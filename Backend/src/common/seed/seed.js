@@ -190,14 +190,14 @@ async function seedListening() {
   const lessonsData = [
     {
       title: 'Ordering Coffee',
-      audio_url: 'https://example.com/audio/ordering-coffee.mp3',
+      audio_url: '/uploads/audio/ordering-coffee.mp3',
       transcript: 'Hi, can I get a medium latte with oat milk please? Sure, that will be five dollars.',
       difficulty: 'A2',
       topic: 'Daily Life'
     },
     {
       title: 'Job Interview Basics',
-      audio_url: 'https://example.com/audio/job-interview.mp3',
+      audio_url: '/uploads/audio/job-interview.mp3',
       transcript: 'Tell me about yourself and why you want to work for our company.',
       difficulty: 'B1',
       topic: 'Business'
@@ -210,6 +210,10 @@ async function seedListening() {
       where: { title: l.title },
       defaults: l
     });
+    // DB cũ có thể còn link example.com không phát được -> trỏ về file audio lưu trong server.
+    if (!lesson.audio_url || lesson.audio_url.includes('example.com')) {
+      await lesson.update({ audio_url: l.audio_url });
+    }
     createdLessons.push(lesson);
   }
 

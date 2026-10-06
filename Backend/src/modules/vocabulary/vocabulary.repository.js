@@ -12,6 +12,32 @@ async function findAllTopics() {
   return VocabularyTopic.findAll({ order: [['name', 'ASC']] });
 }
 
+async function findTopicById(id) {
+  return VocabularyTopic.findByPk(id);
+}
+
+async function findTopicByName(name) {
+  return VocabularyTopic.findOne({ where: { name } });
+}
+
+async function createTopic(data) {
+  return VocabularyTopic.create(data);
+}
+
+async function updateTopic(topic, fields) {
+  await topic.update(fields);
+  return topic;
+}
+
+async function deleteTopic(topic) {
+  // FK vocabulary_words.topic_id là ON DELETE SET NULL: từ vựng giữ lại, chỉ mất chủ đề.
+  return topic.destroy();
+}
+
+async function countWordsInTopic(topicId) {
+  return VocabularyWord.count({ where: { topic_id: topicId } });
+}
+
 async function findWords({ topic_id, difficulty, limit = 20, offset = 0 } = {}) {
   const where = {};
   if (topic_id) where.topic_id = topic_id;
@@ -33,6 +59,16 @@ async function findWordById(id) {
 
 async function createWord(data) {
   return VocabularyWord.create(data);
+}
+
+async function findExistingWordTexts(texts) {
+  if (!texts.length) return new Set();
+  const rows = await VocabularyWord.findAll({ where: { word: { [Op.in]: texts } }, attributes: ['word'], raw: true });
+  return new Set(rows.map((r) => String(r.word).toLowerCase()));
+}
+
+async function bulkCreateWords(items) {
+  return VocabularyWord.bulkCreate(items);
 }
 
 async function updateWord(word, fieldsToUpdate) {
@@ -103,7 +139,15 @@ module.exports = {
   findAllTopics,
   findWords,
   findWordById,
+  findTopicById,
+  findTopicByName,
+  createTopic,
+  updateTopic,
+  deleteTopic,
+  countWordsInTopic,
   createWord,
+  findExistingWordTexts,
+  bulkCreateWords,
   updateWord,
   deleteWord,
   findUserById,

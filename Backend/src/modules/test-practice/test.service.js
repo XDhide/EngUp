@@ -110,27 +110,45 @@ async function submitWriting(userId, testSetId, { attempt_id, content }) {
   }
 
   const { testSet } = attempt;
-  const promptQuestion = (testSet.questions || []).find((q) => AI_GRADED_QUESTION_TYPES.includes(q.question_type));
-  if (!promptQuestion) {
+  const essayQuestions = (testSet.questions || []).filter((q) => AI_GRADED_QUESTION_TYPES.includes(q.question_type));
+  if (essayQuestions.length === 0) {
     throw new AppError('Đề thi này không có câu hỏi Writing/Speaking để chấm AI', 400);
   }
 
+  // Đề có nhiều câu viết: đưa tất cả đề bài cho giám khảo (bài làm đã được gộp theo "[Câu n]" từ client).
+  const promptText = essayQuestions.length === 1
+    ? essayQuestions[0].question_text
+    : essayQuestions.map((q, i) => `[Câu ${i + 1}] ${q.question_text}`).join('\n');
+
   const systemPrompt = buildExamGradingPrompt(testSet.exam_type, testSet.section);
-  const userPrompt = `Đề bài: ${promptQuestion.question_text}\n\nBài làm của thí sinh:\n${content}`;
+  const userPrompt = `Đề bài: ${promptText}\n\nBài làm của thí sinh:\n${content}`;
 
-  const parsed = await callLlmForJson({ systemPrompt, userPrompt });
-
-  if (typeof parsed.band_score !== 'number' || typeof parsed.feedback !== 'string') {
-    throw new AppError('Kết quả AI trả về thiếu trường dữ liệu bắt buộc', 502);
+  let parsed = null;
+  let aiError = null;
+  try {
+    parsed = await callLlmForJson({ systemPrompt, userPrompt });
+    if (typeof parsed.band_score !== 'number' || typeof parsed.feedback !== 'string') {
+      throw new AppError('Kết quả AI trả về thiếu trường dữ liệu bắt buộc', 502);
+    }
+  } catch (err) {
+    // AI lỗi KHÔNG được làm mất bài: vẫn ghi nhận đã nộp, điểm để trống.
+    aiError = err.message || 'AI chấm bài thất bại';
+    parsed = null;
   }
 
   await testRepository.updateAttempt(attempt, {
     answers: { content },
-    band_score: parsed.band_score,
+    band_score: parsed ? parsed.band_score : null,
     submitted_at: new Date(),
     status: 'submitted'
   });
 
+  if (!parsed) {
+    return {
+      band_score: null,
+      feedback: `Bài làm của bạn đã được lưu nhưng AI chưa chấm được: ${aiError}. Vui lòng liên hệ quản trị viên.`
+    };
+  }
   return { band_score: parsed.band_score, feedback: parsed.feedback };
 }
 

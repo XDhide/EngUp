@@ -42,6 +42,35 @@ function validateCreateWord(req, res, next) {
   next();
 }
 
+function validateBulkCreateWords(req, res, next) {
+  const { items, topic_id, difficulty } = req.body || {};
+  const errors = [];
+  if (!Array.isArray(items) || items.length === 0) errors.push('items phải là mảng không rỗng');
+  if (topic_id !== undefined && topic_id !== null && topic_id !== '' && !isPositiveInt(topic_id)) {
+    errors.push('topic_id phải là số nguyên dương');
+  }
+  if (difficulty && !VALID_DIFFICULTIES.includes(difficulty)) {
+    errors.push(`difficulty phải là một trong: ${VALID_DIFFICULTIES.join(', ')}`);
+  }
+  if (errors.length > 0) return next(new AppError(errors.join('; '), 400));
+  next();
+}
+
+function validateTopicBody(requireName) {
+  return (req, res, next) => {
+    const { name, description } = req.body || {};
+    const errors = [];
+    if (requireName && (typeof name !== 'string' || !name.trim())) errors.push('name là bắt buộc');
+    if (name !== undefined && typeof name === 'string' && name.trim().length > 150) errors.push('name tối đa 150 ký tự');
+    if (!requireName && name === undefined && description === undefined) errors.push('Cần ít nhất một field để cập nhật');
+    if (description !== undefined && description !== null && String(description).length > 500) errors.push('description tối đa 500 ký tự');
+    if (errors.length) return next(new AppError(errors.join('; '), 400));
+    next();
+  };
+}
+const validateCreateTopic = validateTopicBody(true);
+const validateUpdateTopic = validateTopicBody(false);
+
 function validateUpdateWord(req, res, next) {
   const body = req.body || {};
   const allowedFields = ['topic_id', 'word', 'phonetic', 'meaning', 'example_sentence', 'audio_url', 'difficulty'];
@@ -103,7 +132,10 @@ function validateSubmitReview(req, res, next) {
 
 module.exports = {
   validateListWordsQuery,
+  validateCreateTopic,
+  validateUpdateTopic,
   validateCreateWord,
+  validateBulkCreateWords,
   validateUpdateWord,
   validateIdParam,
   validateNewWordsQuery,

@@ -110,3 +110,11 @@
 .q-card__opts { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
 .q-opt { padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius); }
 .q-opt--ok { background: var(--ok-bg); border-color: var(--ok-border); color: var(--ok-text); font-weight: 500; }
+
+/* Chọn chủ đề: thẻ trượt ngang, thẻ đầu tiên là "Thêm mới" */
+.topic-slider { display: flex; gap: 8px; overflow-x: auto; padding: 4px 2px 8px; scroll-snap-type: x proximity; }
+.topic-card { flex: 0 0 auto; min-width: 96px; max-width: 200px; scroll-snap-align: start; padding: 10px 14px; border: 1px solid var(--border); border-radius: var(--radius-panel); background: var(--panel); color: var(--text); font: inherit; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.topic-card:hover { border-color: var(--primary); }
+.topic-card.active { background: var(--primary-light); border-color: var(--primary); color: var(--primary); font-weight: 600; }
+.topic-card--add { border-style: dashed; color: var(--primary); font-weight: 600; display: flex; align-items: center; gap: 6px; }
+.topic-card__plus { font-size: 18px; line-height: 1; }

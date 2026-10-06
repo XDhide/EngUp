@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { PageHeader } from '../../components/layout';
 import { Tabs } from '../../components/ui';
 import VocabularyTab from '../../components/content/VocabularyTab';
+import TopicsTab from '../../components/content/TopicsTab';
 import ReadingTab from '../../components/content/ReadingTab';
 import ListeningTab from '../../components/content/ListeningTab';
 import { useFetch } from '../../hooks/useFetch';
@@ -24,6 +25,7 @@ export default function ContentPage() {
 
   const tabs = [
     { key: 'vocabulary', label: 'Từ vựng', count: counts?.vocabulary },
+    { key: 'topics', label: 'Chủ đề' },
     { key: 'reading', label: 'Bài đọc', count: counts?.reading },
     { key: 'listening', label: 'Bài nghe', count: counts?.listening },
   ];
@@ -33,6 +35,7 @@ export default function ContentPage() {
       <PageHeader eyebrow="Quản lý học vụ / Kho học liệu" title="Học liệu" description="Cơ sở dữ liệu từ vựng, bài đọc và bài nghe chuẩn hóa" />
       <Tabs items={tabs} value={tab} onChange={setTab} />
       {tab === 'vocabulary' && <VocabularyTab onChanged={reload} />}
+      {tab === 'topics' && <TopicsTab onChanged={reload} />}
       {tab === 'reading' && <ReadingTab onChanged={reload} />}
       {tab === 'listening' && <ListeningTab onChanged={reload} />}
     </>

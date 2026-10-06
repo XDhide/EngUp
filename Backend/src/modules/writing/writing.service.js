@@ -7,10 +7,7 @@ const {
   toSubmissionListItemDto
 } = require('./writing.dtos');
 
-const GEMINI_API_KEY = process.env.WRITING_LLM_API_KEY;
-const GEMINI_MODEL = process.env.WRITING_LLM_MODEL || 'gemini-2.0-flash';
-const GEMINI_API_BASE_URL = process.env.WRITING_LLM_API_URL || 'https://generativelanguage.googleapis.com/v1beta';
-const AI_GRADING_TIMEOUT_MS = 15000;
+const { callLlmForJson } = require('../../common/services/llmGradingService');
 
 const GRADING_SYSTEM_PROMPT = `Bạn là giáo viên tiếng Anh có kinh nghiệm chấm bài luận cho học viên.
 Chấm bài viết dựa trên đề bài được cung cấp, đánh giá về nội dung, ngữ pháp, từ vựng.
@@ -23,82 +20,30 @@ CHỈ trả lời bằng một object JSON hợp lệ duy nhất, không thêm b
 }
 "score" là số từ 0 đến 100.`;
 
-function buildGeminiUrl() {
-  return `${GEMINI_API_BASE_URL}/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
-}
-
 async function callAiGrading(promptText, content) {
-  if (!GEMINI_API_KEY) {
-    throw new AppError('Chưa cấu hình WRITING_LLM_API_KEY để chấm bài viết bằng AI', 502);
+  // Dùng chung common/services/llmGradingService (retry, model dự phòng, báo đúng nguyên nhân lỗi).
+  const parsed = await callLlmForJson({
+    systemPrompt: GRADING_SYSTEM_PROMPT,
+    userPrompt: `Đề bài: ${promptText}\n\nBài làm của học viên:\n${content}`
+  });
+
+  if (
+    !parsed.overall_comment ||
+    !Array.isArray(parsed.grammar_errors) ||
+    !Array.isArray(parsed.vocabulary_suggestions) ||
+    typeof parsed.score !== 'number'
+  ) {
+    throw new AppError('Kết quả AI trả về thiếu trường dữ liệu bắt buộc', 502);
   }
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), AI_GRADING_TIMEOUT_MS);
-
-  try {
-    const res = await fetch(buildGeminiUrl(), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        systemInstruction: { parts: [{ text: GRADING_SYSTEM_PROMPT }] },
-        contents: [
-          {
-            role: 'user',
-            parts: [{ text: `Đề bài: ${promptText}\n\nBài làm của học viên:\n${content}` }]
-          }
-        ],
-        generationConfig: {
-          temperature: 0.3,
-          responseMimeType: 'application/json'
-        }
-      }),
-      signal: controller.signal
-    });
-
-    if (!res.ok) {
-      throw new AppError('AI chấm bài viết thất bại', 502);
-    }
-
-    const data = await res.json();
-    const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-
-    if (!rawText) {
-      throw new AppError('Kết quả AI trả về không hợp lệ', 502);
-    }
-
-    let parsed;
-    try {
-      parsed = JSON.parse(rawText);
-    } catch (parseErr) {
-      throw new AppError('Kết quả AI trả về không đúng định dạng JSON', 502);
-    }
-
-    if (
-      !parsed.overall_comment ||
-      !Array.isArray(parsed.grammar_errors) ||
-      !Array.isArray(parsed.vocabulary_suggestions) ||
-      typeof parsed.score !== 'number'
-    ) {
-      throw new AppError('Kết quả AI trả về thiếu trường dữ liệu bắt buộc', 502);
-    }
-
-    return {
-      ai_feedback: {
-        overall_comment: parsed.overall_comment,
-        grammar_errors: parsed.grammar_errors,
-        vocabulary_suggestions: parsed.vocabulary_suggestions
-      },
-      ai_score: parsed.score
-    };
-  } catch (err) {
-    if (err.name === 'AbortError') {
-      throw new AppError('Quá thời gian chấm bài, vui lòng thử lại sau', 504);
-    }
-    if (err instanceof AppError) throw err;
-    throw new AppError('Không thể chấm bài viết, thử lại sau', 502);
-  } finally {
-    clearTimeout(timeout);
-  }
+  return {
+    ai_feedback: {
+      overall_comment: parsed.overall_comment,
+      grammar_errors: parsed.grammar_errors,
+      vocabulary_suggestions: parsed.vocabulary_suggestions
+    },
+    ai_score: parsed.score
+  };
 }
 
 async function getPrompts({ type }) {
