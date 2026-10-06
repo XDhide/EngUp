@@ -25,8 +25,10 @@ export const API_ADMIN_USER_PROGRESS = (id) => `/admin/users/${id}/progress`;
 
 // ─── ADMIN: HỌC LIỆU – TỪ VỰNG ───────────────────────────────────────────────
 export const API_VOCABULARY_TOPICS = '/vocabulary/topics';
+export const API_VOCABULARY_TOPIC = (id) => `/vocabulary/topics/${id}`;
 export const API_VOCABULARY_WORDS = '/vocabulary/words';
 export const API_VOCABULARY_WORD = (id) => `/vocabulary/words/${id}`;
+export const API_VOCABULARY_WORDS_BULK = '/vocabulary/words/bulk';
 
 // ─── ADMIN: HỌC LIỆU – BÀI ĐỌC ───────────────────────────────────────────────
 export const API_READING_ARTICLES = '/reading/articles';

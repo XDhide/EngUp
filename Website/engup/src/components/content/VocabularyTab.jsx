@@ -7,14 +7,16 @@ import { Button, DataTable, ErrorBanner, FilterChips, Pagination, Panel, SearchI
 import LevelBadge from '../common/LevelBadge';
 import DeleteDialog from '../common/DeleteDialog';
 import FormPanel from './FormPanel';
+import BulkImportPanel from './BulkImportPanel';
+import TopicPicker from './TopicPicker';
 
 const PAGE_SIZE = 10;
 const LEVELS = [{ value: '', label: 'Tất cả' }, ...CEFR_LEVELS.map((l) => ({ value: l, label: l }))];
 const EMPTY = { word: '', phonetic: '', meaning: '', difficulty: '', topic_id: '', example_sentence: '' };
 
-function WordForm({ word, topics, onSaved, onCancel }) {
+function WordForm({ word, topics, onTopicsChanged, onSaved, onCancel }) {
   const editing = !!word;
-  const [v, bind] = useFormState(editing
+  const [v, bind, setValues] = useFormState(editing
     ? { ...EMPTY, ...Object.fromEntries(Object.entries(word).map(([k, val]) => [k, val ?? ''])) }
     : EMPTY);
 
@@ -37,8 +39,8 @@ function WordForm({ word, topics, onSaved, onCancel }) {
       <TextField label="Nghĩa tiếng Việt" required placeholder="Ví dụ: Khả năng thích ứng" value={v.meaning} onChange={bind('meaning')} />
       <div className="form-row">
         <SelectField label="Cấp độ chuẩn CEFR" options={CEFR_OPTIONS} value={v.difficulty} onChange={bind('difficulty')} />
-        <SelectField label="Chủ đề" options={topics.map((t) => ({ value: t.id, label: t.name }))} value={v.topic_id} onChange={bind('topic_id')} />
       </div>
+      <TopicPicker topics={topics} value={v.topic_id} onChange={(id) => setValues((s) => ({ ...s, topic_id: id }))} onTopicsChanged={onTopicsChanged} />
       <TextAreaField label="Câu ví dụ" placeholder="Ví dụ: Adaptability is an essential skill in modern workplaces." value={v.example_sentence} onChange={bind('example_sentence')} />
     </FormPanel>
   );
@@ -50,6 +52,7 @@ export default function VocabularyTab({ onChanged }) {
   const [page, setPage] = useState(1);
   const [editing, setEditing] = useState(null); // null = thêm mới
   const [removing, setRemoving] = useState(null);
+  const [bulk, setBulk] = useState(false);
 
   const topicsQ = useFetch(() => vocabularyService.topics(), []);
   const topics = useMemo(() => topicsQ.data?.topics || [], [topicsQ.data]);
@@ -75,7 +78,7 @@ export default function VocabularyTab({ onChanged }) {
     { key: 'difficulty', header: 'Cấp độ', render: (w) => <LevelBadge level={w.difficulty} /> },
     { key: 'topic', header: 'Chủ đề', render: (w) => topicName[w.topic_id] || '—' },
     { key: 'action', header: 'Thao tác', align: 'right', render: (w) => (
-      <span className="actions"><LinkButton onClick={() => setEditing(w)}>Sửa</LinkButton><LinkButton tone="danger" onClick={() => setRemoving(w)}>Xóa</LinkButton></span>
+      <span className="actions"><LinkButton onClick={() => { setBulk(false); setEditing(w); }}>Sửa</LinkButton><LinkButton tone="danger" onClick={() => setRemoving(w)}>Xóa</LinkButton></span>
     ) },
   ];
 
@@ -94,8 +97,13 @@ export default function VocabularyTab({ onChanged }) {
         </Panel>
       </div>
       <div>
-        <WordForm key={editing?.id ?? 'new'} word={editing} topics={topics} onCancel={() => setEditing(null)}
-          onSaved={() => { setEditing(null); refresh(); }} />
+        {bulk ? (
+          <BulkImportPanel topics={topics} onTopicsChanged={topicsQ.reload} onCancel={() => setBulk(false)} onDone={refresh} />
+        ) : (<>
+          <div style={{ marginBottom: 16 }}><Button variant="primary" onClick={() => { setEditing(null); setBulk(true); }}>Nhập hàng loạt (dán / CSV / AI)</Button></div>
+          <WordForm key={editing?.id ?? 'new'} word={editing} topics={topics} onTopicsChanged={topicsQ.reload} onCancel={() => setEditing(null)}
+            onSaved={() => { setEditing(null); refresh(); }} />
+        </>)}
         {editing && <div style={{ marginTop: 16 }}><Button onClick={() => setEditing(null)}>Chuyển sang thêm từ mới</Button></div>}
       </div>
       <DeleteDialog target={removing} label={removing ? `từ "${removing.word}"` : ''} onClose={() => setRemoving(null)}

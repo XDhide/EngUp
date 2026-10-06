@@ -1,6 +1,6 @@
 import { api } from './apiClient';
 import {
-  API_VOCABULARY_TOPICS, API_VOCABULARY_WORDS, API_VOCABULARY_WORD,
+  API_VOCABULARY_TOPICS, API_VOCABULARY_TOPIC, API_VOCABULARY_WORDS, API_VOCABULARY_WORD, API_VOCABULARY_WORDS_BULK,
   API_READING_ARTICLES, API_READING_ARTICLE_DETAIL, API_ADMIN_READING_ARTICLES, API_ADMIN_READING_ARTICLE,
   API_LISTENING_LESSONS, API_LISTENING_LESSON_DETAIL, API_ADMIN_LISTENING_LESSONS,
   API_ADMIN_LISTENING_LESSON, API_ADMIN_LISTENING_LESSON_AUDIO,
@@ -8,9 +8,14 @@ import {
 
 export const vocabularyService = {
   topics: () => api.get(API_VOCABULARY_TOPICS),
+  createTopic: (data) => api.post(API_VOCABULARY_TOPICS, data),
+  updateTopic: (id, data) => api.put(API_VOCABULARY_TOPIC(id), data),
+  removeTopic: (id) => api.del(API_VOCABULARY_TOPIC(id)),
   /** params: { topic_id, difficulty, limit, offset } -> { words[], total } */
   list: (params) => api.get(API_VOCABULARY_WORDS, params),
   create: (data) => api.post(API_VOCABULARY_WORDS, data),
+  /** data: { items:[{word,meaning?,phonetic?,example_sentence?,difficulty?}], topic_id?, difficulty?, ai_enrich? } */
+  bulkCreate: (data) => api.post(API_VOCABULARY_WORDS_BULK, data),
   update: (id, data) => api.put(API_VOCABULARY_WORD(id), data),
   remove: (id) => api.del(API_VOCABULARY_WORD(id)),
 };

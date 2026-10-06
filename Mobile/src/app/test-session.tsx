@@ -71,7 +71,8 @@ export default function TestSessionScreen() {
   const [testSet, setTestSet] = useState<TestSetSummary | null>(null);
   const [questions, setQuestions] = useState<TestQuestion[]>([]);
   const [answers, setAnswers] = useState<Record<number, string>>({});
-  const [essay, setEssay] = useState('');
+  // Mỗi câu Viết/Nói có ô trả lời riêng (trước đây dùng chung 1 state nên các khung bị đồng bộ với nhau).
+  const [essays, setEssays] = useState<Record<number, string>>({});
   const [attemptId, setAttemptId] = useState<number | null>(viewAttemptId);
   const [secondsLeft, setSecondsLeft] = useState(0);
   const [submitting, setSubmitting] = useState(false);
@@ -81,6 +82,18 @@ export default function TestSessionScreen() {
   const submittedRef = useRef(false);
 
   const writing = isWritingTest(questions);
+  const essayQuestions = useMemo(
+    () => questions.filter((q) => q.question_type === 'essay' || q.question_type === 'speaking_prompt'),
+    [questions]
+  );
+  // Gộp các bài viết thành một nội dung gửi chấm; chỉ gắn nhãn "Câu n" khi đề có nhiều hơn 1 câu viết.
+  const essay = useMemo(() => {
+    const filled = essayQuestions
+      .map((q, i) => ({ q, i, text: (essays[q.id] ?? '').trim() }))
+      .filter((x) => x.text);
+    if (essayQuestions.length <= 1) return filled[0]?.text ?? '';
+    return filled.map((x) => `[Câu ${x.i + 1}] ${x.q.question_text}\n${x.text}`).join('\n\n');
+  }, [essayQuestions, essays]);
 
   const load = useCallback(async () => {
     setMode('loading');
@@ -299,10 +312,10 @@ export default function TestSessionScreen() {
                                 : 'Viết bài của bạn tại đây...'
                             }
                             placeholderTextColor={Colors.outline}
-                            value={essay}
-                            onChangeText={setEssay}
+                            value={essays[q.id] ?? ''}
+                            onChangeText={(t) => setEssays((p) => ({ ...p, [q.id]: t }))}
                           />
-                          <Text style={styles.hint}>{countWords(essay)} từ</Text>
+                          <Text style={styles.hint}>{countWords(essays[q.id] ?? '')} từ</Text>
                         </>
                       )}
                     </View>

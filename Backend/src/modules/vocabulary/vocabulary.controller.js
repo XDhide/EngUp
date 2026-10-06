@@ -20,6 +20,42 @@ async function getWords(req, res, next) {
   }
 }
 
+async function createTopic(req, res, next) {
+  try {
+    const data = await vocabularyService.createTopic(req.user, req.body);
+    return successResponse(res, { message: 'Tạo chủ đề thành công', data, statusCode: 201 });
+  } catch (err) { next(err); }
+}
+
+async function updateTopic(req, res, next) {
+  try {
+    const data = await vocabularyService.updateTopic(req.user, req.params.id, req.body);
+    return successResponse(res, { message: 'Cập nhật chủ đề thành công', data, statusCode: 200 });
+  } catch (err) { next(err); }
+}
+
+async function deleteTopic(req, res, next) {
+  try {
+    const data = await vocabularyService.deleteTopic(req.user, req.params.id);
+    return successResponse(res, { message: 'Xóa chủ đề thành công', data, statusCode: 200 });
+  } catch (err) { next(err); }
+}
+
+async function bulkCreateWords(req, res, next) {
+  try {
+    const { items, topic_id, difficulty, ai_enrich } = req.body;
+    const data = await vocabularyService.bulkCreateWords(req.user, {
+      items,
+      topic_id: topic_id ? Number(topic_id) : null,
+      difficulty,
+      ai_enrich: !!ai_enrich
+    });
+    return successResponse(res, { message: `Đã thêm ${data.created} từ vựng`, data, statusCode: 201 });
+  } catch (err) {
+    next(err);
+  }
+}
+
 async function createWord(req, res, next) {
   try {
     const { topic_id, word, phonetic, meaning, example_sentence, audio_url, difficulty } = req.body;
@@ -96,7 +132,11 @@ async function submitReview(req, res, next) {
 module.exports = {
   getTopics,
   getWords,
+  createTopic,
+  updateTopic,
+  deleteTopic,
   createWord,
+  bulkCreateWords,
   updateWord,
   deleteWord,
   getNewWords,

@@ -30,3 +30,14 @@
 - Streak chỉ cập nhật bởi cron hằng ngày (00:10) nên không tăng ngay trong ngày.
 - `audio_url` trong seed là `example.com` nên nghe chép chỉ phát được khi có file audio thật.
 - Đề trắc nghiệm chấm khớp chuỗi chính xác (phân biệt hoa/thường ở câu điền từ).
+
+---
+# Đợt sửa lỗi Admin/Backend (đợt 2)
+Đã sửa: mount /admin/users và /admin (content); thêm CRUD bài đọc thủ công; thêm multer; nhập từ vựng hàng loạt (+AI);
+rate limit theo tài khoản; essay state theo từng câu (Mobile); phục vụ /uploads + URL audio tuyệt đối + seed audio local;
+llmGradingService (retry, model dự phòng, báo đúng lỗi) và nộp bài viết vẫn lưu khi AI lỗi.
+Chủ đề từ vựng: API thêm/sửa/xóa chủ đề (/vocabulary/topics, /admin/vocabulary/topics); Website có tab "Chủ đề",
+thẻ trượt chọn chủ đề (thẻ đầu = "+ Thêm mới" mở cửa sổ nhỏ) ở form từ vựng và nhập hàng loạt.
+Nhật ký hệ thống: "Chi tiết" mở cửa sổ nổi (trước đó khung chi tiết nằm cuối trang nên không thấy).
+Chạy lại: cd Backend && npm install && npm run db:seed
+AI chấm bài: bỏ model gemini-1.5 đã bị Google gỡ; tự dò model khả dụng bằng ListModels; báo lỗi của mọi model đã thử.

@@ -34,6 +34,20 @@ async function createArticle(data) {
   return ReadingArticle.create(data);
 }
 
+async function findArticleById(id) {
+  return ReadingArticle.findByPk(id);
+}
+
+async function updateArticle(article, fieldsToUpdate) {
+  await article.update(fieldsToUpdate);
+  return article;
+}
+
+async function deleteArticle(article) {
+  // FK reading_questions / reading_attempts -> reading_articles là ON DELETE CASCADE.
+  return article.destroy();
+}
+
 async function createQuestionsBulk(articleId, questions) {
   const rows = questions.map((q) => ({ ...q, article_id: articleId }));
   return ReadingQuestion.bulkCreate(rows);
@@ -62,6 +76,9 @@ module.exports = {
   findApprovedArticleWithQuestions,
   findArticleWithQuestionsById,
   createArticle,
+  findArticleById,
+  updateArticle,
+  deleteArticle,
   createQuestionsBulk,
   findArticleWithQuestionsIncludingAnswers,
   createAttempt,

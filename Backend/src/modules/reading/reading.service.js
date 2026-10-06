@@ -119,7 +119,49 @@ async function generateArticle(requester, { topic, difficulty }) {
   return toArticleAdminDto(fullArticle);
 }
 
+// ---- Admin tạo/sửa/xoá bài đọc thủ công (không qua hàng đợi duyệt: admin tự đăng nên duyệt luôn) ----
+async function createArticleManual(requester, { title, content, difficulty, topic }) {
+  assertAdmin(requester);
+  const article = await readingRepository.createArticle({
+    title: title.trim(),
+    content: content.trim(),
+    difficulty: difficulty || null,
+    topic: topic || null,
+    is_ai_generated: false,
+    is_approved: true,
+    created_by: requester.id
+  });
+  return toArticleAdminDto(article);
+}
+
+async function updateArticleManual(requester, articleId, fields) {
+  assertAdmin(requester);
+  const article = await readingRepository.findArticleById(articleId);
+  if (!article) {
+    throw new AppError('Bài đọc không tồn tại', 404);
+  }
+  const allowed = {};
+  ['title', 'content', 'difficulty', 'topic'].forEach((k) => {
+    if (fields[k] !== undefined) allowed[k] = typeof fields[k] === 'string' ? fields[k].trim() : fields[k];
+  });
+  const updated = await readingRepository.updateArticle(article, allowed);
+  return toArticleAdminDto(updated);
+}
+
+async function deleteArticleManual(requester, articleId) {
+  assertAdmin(requester);
+  const article = await readingRepository.findArticleById(articleId);
+  if (!article) {
+    throw new AppError('Bài đọc không tồn tại', 404);
+  }
+  await readingRepository.deleteArticle(article);
+  return null;
+}
+
 module.exports = {
+  createArticleManual,
+  updateArticleManual,
+  deleteArticleManual,
   getArticles,
   getArticleDetail,
   submitArticle,

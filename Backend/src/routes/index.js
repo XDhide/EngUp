@@ -11,6 +11,7 @@ const {
 router.use('/auth', require('../modules/auth/auth.routes'));
 router.use('/admin/auth', require('../modules/admin-auth/admin-auth.routes'));
 router.use('/admin/content', require('../modules/admin-approval/admin-approval.routes'));
+router.use('/admin/users', require('../modules/admin-users/admin-users.routes'));
 router.use('/admin/tests', require('../modules/admin-tests/admin-tests.routes'));
 router.use('/admin/logs', require('../modules/admin-logs/admin-logs.routes'));
 router.use('/admin/notifications', adminNotificationsRouter);
@@ -26,5 +27,10 @@ router.use('/notifications', require('../modules/notifications/notifications.rou
 router.use('/vocabulary', vocabularyRouter);
 router.use('/review', reviewRouter);
 router.use('/stats', require('../modules/statistics/statistics.routes'));
+
+// Admin Content (bài đọc /admin/reading/articles, bài nghe /admin/listening/lessons, từ vựng /admin/vocabulary).
+// Router này tự gắn authenticateJWT + requireAdmin cho MỌI đường dẫn dưới /admin nên PHẢI đặt cuối cùng,
+// sau tất cả router /admin/* khác, để không chặn nhầm chúng.
+router.use('/admin', require('../modules/admin-content/admin-content.routes'));
 
 module.exports = router;
