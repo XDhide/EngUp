@@ -9,6 +9,7 @@ import { AppButton } from '../components/common/AppButton';
 import { ErrorBanner } from '../components/common/ErrorBanner';
 import { notificationService, NotificationSettings } from '../services/notificationService';
 import { errorMessage } from '../services/apiClient';
+import { pushService } from '../services/pushService';
 
 const TIME_REGEX = /^([01]\d|2[0-3]):[0-5]\d$/;
 
@@ -21,6 +22,8 @@ export default function NotificationSettingsScreen() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pushBusy, setPushBusy] = useState(false);
+  const [pushMsg, setPushMsg] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -40,6 +43,29 @@ export default function NotificationSettingsScreen() {
       load();
     }, [load])
   );
+
+  const enablePush = async () => {
+    setPushBusy(true);
+    setPushMsg(null);
+    const r = await pushService.register();
+    setPushMsg(r.message);
+    await load();
+    setPushBusy(false);
+  };
+
+  const sendTest = async () => {
+    setPushBusy(true);
+    setPushMsg(null);
+    try {
+      const r = await pushService.sendTest();
+      if (r.push === 'sent') setPushMsg('Đã gửi thông báo thử. Nếu không thấy trên màn hình khóa, hãy kiểm tra quyền thông báo của ứng dụng.');
+      else if (r.push === 'no_token') setPushMsg('Thiết bị chưa đăng ký thông báo đẩy. Bấm "Bật thông báo đẩy" trước.');
+      else setPushMsg(`Gửi push thất bại${r.push_error ? `: ${r.push_error}` : ''}.`);
+    } catch (e) {
+      setPushMsg(errorMessage(e, 'Không gửi được thông báo thử.'));
+    }
+    setPushBusy(false);
+  };
 
   const timeValid = timeInput.trim() === '' || TIME_REGEX.test(timeInput.trim());
 
@@ -111,9 +137,18 @@ export default function NotificationSettingsScreen() {
               {saved && <Text style={styles.savedText}>Đã lưu cài đặt.</Text>}
             </View>
 
-            <Text style={styles.note}>
-              Để nhận thông báo đẩy, hãy cấp quyền thông báo cho ứng dụng trong cài đặt thiết bị.
-            </Text>
+            <Text style={styles.sectionTitle}>THÔNG BÁO ĐẨY TRÊN THIẾT BỊ</Text>
+            <View style={styles.card}>
+              <Text style={styles.rowTitle}>
+                {settings?.has_push_token ? 'Đã đăng ký nhận thông báo đẩy' : 'Chưa đăng ký nhận thông báo đẩy'}
+              </Text>
+              <Text style={styles.rowDesc}>
+                Cần điện thoại thật và cấp quyền thông báo. Thông báo đẩy chỉ gửi khi bạn bật nhắc và đặt giờ nhắc ở trên.
+              </Text>
+              <AppButton title="Bật thông báo đẩy" loading={pushBusy} onPress={enablePush} />
+              <AppButton title="Gửi thông báo thử" variant="outline" disabled={pushBusy} onPress={sendTest} />
+              {pushMsg && <Text style={styles.savedText}>{pushMsg}</Text>}
+            </View>
           </>
         )}
         <View style={styles.bottomSpacer} />

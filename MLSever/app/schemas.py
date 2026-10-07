@@ -18,3 +18,13 @@ class PredictRequest(BaseModel):
     # Tuỳ chọn: nếu Backend không gửi, ML-Service tự đọc review_logs (read-only) của cặp user/word.
     review_history: Optional[List[ReviewItem]] = Field(default=None, max_length=500)
     dry_run: bool = False
+    as_of: Optional[datetime] = None
+
+
+class BatchItem(BaseModel):
+    review_history: List[ReviewItem] = Field(max_length=500)
+    as_of: Optional[datetime] = None
+
+
+class BatchPredictRequest(BaseModel):
+    items: List[BatchItem] = Field(max_length=1000)

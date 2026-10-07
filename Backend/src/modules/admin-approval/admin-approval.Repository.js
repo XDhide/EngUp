@@ -9,6 +9,8 @@ const {
   TestSet,
   VocabularyWord,
   VocabularyTopic,
+  LearningPath,
+  LearningPathItem,
   User
 } = require('../../common/models');
 
@@ -17,7 +19,8 @@ const {
 const CONTENT_MODELS = {
   reading_article: ReadingArticle,
   test_question: TestQuestion,
-  vocabulary_word: VocabularyWord
+  vocabulary_word: VocabularyWord,
+  learning_path: LearningPath
 };
 
 // ---------- Transaction ----------
@@ -38,6 +41,10 @@ async function titleFromContent(contentType, contentId) {
     if (contentType === 'vocabulary_word') {
       const w = await VocabularyWord.findByPk(contentId, { attributes: ['word'] });
       return w ? w.word : null;
+    }
+    if (contentType === 'learning_path') {
+      const p = await LearningPath.findByPk(contentId, { attributes: ['title'] });
+      return p ? p.title : null;
     }
     if (contentType === 'test_question') {
       const q = await TestQuestion.findByPk(contentId, { attributes: ['question_text'] });
@@ -94,6 +101,21 @@ async function getContentDetail(contentType, contentId) {
         correct_answer: q.correct_answer,
         explanation: q.explanation
       }))
+    };
+  }
+  if (contentType === 'learning_path') {
+    const p = await LearningPath.findByPk(contentId);
+    if (!p) return null;
+    const items = await LearningPathItem.findAll({ where: { path_id: p.id }, order: [['order_index', 'ASC']] });
+    const names = await require('../learning-paths/learning-paths.service').describeItems(items);
+    return {
+      kind: 'learning_path',
+      id: p.id,
+      title: p.title,
+      description: p.description,
+      level: p.level,
+      is_approved: p.is_approved,
+      items: names
     };
   }
   if (contentType === 'vocabulary_word') {

@@ -43,7 +43,17 @@ async function markAsRead(req, res, next) {
   }
 }
 
+async function sendTest(req, res, next) {
+  try {
+    const data = await notificationsService.sendTest(req.user.id);
+    return successResponse(res, { message: 'Đã gửi thông báo thử', data, statusCode: 200 });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
+  sendTest,
   getSettings,
   updateSettings,
   getNotifications,

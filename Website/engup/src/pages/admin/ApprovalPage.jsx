@@ -26,6 +26,7 @@ export default function ApprovalPage() {
     { key: 'reading_article', label: `Bài đọc (${count('reading_article')})` },
     { key: 'test_question', label: `Câu hỏi đề thi (${count('test_question')})` },
     { key: 'vocabulary_word', label: `Từ vựng (${count('vocabulary_word')})` },
+    { key: 'learning_path', label: `Lộ trình (${count('learning_path')})` },
   ];
 
   return (

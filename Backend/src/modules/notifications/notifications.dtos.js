@@ -1,7 +1,8 @@
 function toSettingsDto(settings) {
   return {
     daily_reminder_time: settings.daily_reminder_time,
-    review_reminder_enabled: settings.review_reminder_enabled
+    review_reminder_enabled: settings.review_reminder_enabled,
+    has_push_token: !!settings.push_token
   };
 }
 

@@ -117,6 +117,15 @@ export default function ProfileScreen() {
 
           <TouchableOpacity
             style={styles.menuItem}
+            onPress={() => router.push('/learning-paths')}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.menuItemText}>Lộ trình học</Text>
+            <Text style={styles.menuItemArrow}>›</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.menuItem}
             onPress={() => router.push('/notes')}
             activeOpacity={0.7}
           >

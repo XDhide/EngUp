@@ -14,15 +14,23 @@ export const QUESTION_TYPES = [
   { value: 'essay', label: 'Viết luận' },
   { value: 'speaking_prompt', label: 'Nói' },
 ];
-export const CONTENT_TYPE_LABELS = { reading_article: 'Bài đọc', test_question: 'Câu hỏi đề thi', vocabulary_word: 'Từ vựng' };
+export const CONTENT_TYPE_LABELS = { reading_article: 'Bài đọc', test_question: 'Câu hỏi đề thi', vocabulary_word: 'Từ vựng', learning_path: 'Lộ trình học' };
 export const LOG_LEVEL_LABELS = { info: 'Thông tin', warning: 'Cảnh báo', error: 'Lỗi', critical: 'Nghiêm trọng' };
-export const NAV_ITEMS = [
-  { to: '/', label: 'Tổng quan', end: true },
-  { to: '/users', label: 'Người dùng' },
-  { to: '/content', label: 'Học liệu' },
-  { to: '/approval', label: 'Duyệt nội dung' },
-  { to: '/tests', label: 'Đề thi' },
-  { to: '/placement', label: 'Test đầu vào' },
-  { to: '/system', label: 'Kiểm tra hệ thống' },
-  { to: '/logs', label: 'Nhật ký' },
+export const NAV_GROUPS = [
+  { label: 'Chung', items: [
+    { to: '/', label: 'Tổng quan', end: true },
+    { to: '/users', label: 'Người dùng' },
+  ] },
+  { label: 'Nội dung', items: [
+    { to: '/content', label: 'Học liệu' },
+    { to: '/approval', label: 'Duyệt nội dung' },
+    { to: '/tests', label: 'Đề thi' },
+    { to: '/paths', label: 'Lộ trình học' },
+    { to: '/placement', label: 'Test đầu vào' },
+  ] },
+  { label: 'Vận hành', items: [
+    { to: '/system', label: 'Kiểm tra hệ thống' },
+    { to: '/logs', label: 'Nhật ký' },
+  ] },
 ];
+export const NAV_ITEMS = NAV_GROUPS.flatMap((g) => g.items);

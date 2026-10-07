@@ -5,9 +5,11 @@ const {
 } = require('../../common/models');
 const AppError = require('../../common/utils/AppError');
 const streaks = require('../streaks/streaks.service');
+const mlTests = require('./ml-tests');
 const { jobState: streakJobState } = require('../streaks/streaks.job');
 const { reminderState, runReminderJob } = require('../notifications/jobs/reminderJob');
 const { notifyUser } = require('../notifications/notifications.sender');
+const { sendExpoPushBatch, isExpoToken } = require('../notifications/expoPush.util');
 const { APP_TIMEZONE, localDateString, localDayRangeUtc, addDaysToDateString, localTimeString } = require('../../common/utils/appTime');
 
 const OK = 'ok', WARN = 'warn', FAIL = 'fail', INFO = 'info';
@@ -163,6 +165,54 @@ async function sendTestNotification(requester, { user_id } = {}) {
   };
 }
 
+
+async function broadcastNotification(requester, { title, body, audience } = {}) {
+  assertAdmin(requester);
+  title = String(title || '').trim();
+  body = String(body || '').trim();
+  if (!title) throw new AppError('Tiêu đề thông báo không được để trống', 400);
+  if (!body) throw new AppError('Nội dung thông báo không được để trống', 400);
+  if (title.length > 120) throw new AppError('Tiêu đề tối đa 120 ký tự', 400);
+  if (body.length > 500) throw new AppError('Nội dung tối đa 500 ký tự', 400);
+  if (audience && !['students', 'all'].includes(audience)) throw new AppError('audience phải là students hoặc all', 400);
+
+  const startedAt = Date.now();
+  const where = { is_active: true, ...(audience === 'all' ? {} : { role: 'student' }) };
+  const users = await User.findAll({ where, attributes: ['id'], raw: true });
+  const ids = users.map((u) => u.id);
+  if (!ids.length) throw new AppError('Không có người dùng nào để gửi', 400);
+
+  const stats = { audience: audience || 'students', users: ids.length, inapp: 0, push_sent: 0, push_failed: 0, no_token: 0, invalid_token: 0, errors: [] };
+
+  for (let i = 0; i < ids.length; i += 500) {
+    const part = ids.slice(i, i + 500);
+    await Notification.bulkCreate(part.map((user_id) => ({ user_id, title, body, type: 'system' })));
+    stats.inapp += part.length;
+  }
+
+  const settings = await NotificationSetting.findAll({ where: { user_id: ids, push_token: { [Op.ne]: null } }, attributes: ['user_id', 'push_token'], raw: true });
+  const valid = settings.filter((s) => isExpoToken(s.push_token));
+  stats.invalid_token = settings.length - valid.length;
+  stats.no_token = ids.length - settings.length;
+
+  const results = await sendExpoPushBatch(valid.map((s) => ({ pushToken: s.push_token, title, body, data: { type: 'system' } })));
+  const dead = [];
+  results.forEach((r, k) => {
+    if (r.status === 'sent') stats.push_sent += 1;
+    else {
+      stats.push_failed += 1;
+      if (r.code === 'DeviceNotRegistered') dead.push(valid[k].user_id);
+      if (stats.errors.length < 5 && !stats.errors.includes(r.error)) stats.errors.push(r.error);
+    }
+  });
+  if (dead.length) await NotificationSetting.update({ push_token: null }, { where: { user_id: dead } });
+
+  const status = stats.push_failed > 0 ? 'partial' : 'success';
+  await SystemJobRun.create({ job_name: 'broadcast', trigger: 'manual', status, summary: { ...stats, title }, duration_ms: Date.now() - startedAt }).catch(() => {});
+  await AuditLog.create({ actor_id: requester.id, action: 'notification.broadcast', target_type: 'system', target_id: 0, detail: { title, ...stats } }).catch(() => {});
+  return stats;
+}
+
 async function runReminderNow(requester, { user_id } = {}) {
   assertAdmin(requester);
   return runReminderJob({ userId: user_id });
@@ -261,6 +311,15 @@ async function checkMl(requester) {
   return { status: worst(checks), generated_at: new Date(), checks };
 }
 
+async function runMlTestSuite(requester, { samples } = {}) {
+  assertAdmin(requester);
+  try {
+    return await mlTests.runMlTests({ samples });
+  } catch (err) {
+    throw new AppError(`Không chạy được bộ test ML: ${err.message}`, 502);
+  }
+}
+
 async function overview(requester) {
   assertAdmin(requester);
   const [s, n, m] = await Promise.allSettled([checkStreak(requester), checkNotifications(requester), checkMl(requester)]);
@@ -268,4 +327,4 @@ async function overview(requester) {
   return { streak: pick(s), notifications: pick(n), ml: pick(m) };
 }
 
-module.exports = { checkStreak, runStreakNow, checkNotifications, sendTestNotification, runReminderNow, checkMl, overview };
+module.exports = { runMlTestSuite, checkStreak, runStreakNow, checkNotifications, sendTestNotification, broadcastNotification, runReminderNow, checkMl, overview };

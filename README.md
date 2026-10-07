@@ -13,7 +13,8 @@ Lệnh này tự: build & chạy MySQL + MLSever (FastAPI, nạp `MLSever/models
 | `npm run app -- --no-mobile` | chỉ chạy MySQL + ML + Backend |
 | `npm run stop` | tắt Docker |
 | `npm run reset` | tắt và XOÁ database (nạp lại schema + seed lần sau) |
-| `npm run app:reset` | **(để test)** xoá sạch bảng, nạp lại schema, tạo 2 admin: `admin@engup.test / Admin@123` và `admin2@engup.test / Admin@123` (hỏi xác nhận trước khi xoá) |
+| `npm run app:reset` | **(để test)** xoá sạch bảng, nạp lại schema, tạo 2 admin: `admin@engup.test / Admin@123` và `admin2@engup.test / Admin@123` (hỏi xác nhận trước khi xoá). Sau khi reset tự thử đăng nhập qua Backend và báo nếu Backend dùng database khác |
+| `npm run app:resettest` | **(để test đầy đủ)** reset database + tạo 2 admin + nạp dữ liệu mẫu (student1/2, từ vựng, bài đọc, bài nghe, đề thi...). Thêm `-- --yes` để bỏ hỏi xác nhận, `-- --docker` / `-- --local` để chọn MySQL |
 | `npm run app:reset -- --yes --seed` | như trên nhưng bỏ hỏi xác nhận và nạp thêm dữ liệu mẫu (student1/2, từ vựng, đề thi...) |
 | `npm run logs` | xem log |
 

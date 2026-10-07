@@ -9,6 +9,11 @@
  *        - Admin 1: admin@engup.test  / Admin@123
  *        - Admin 2: admin2@engup.test / Admin@123
  *
+ * npm run app:resettest  = reset + tạo 2 admin + nạp dữ liệu mẫu (tương đương app:reset -- --seed)
+ *
+ * Sau khi reset, nếu Backend đang chạy, script tự gọi thử đăng nhập admin để chắc chắn Backend
+ * đọc đúng database vừa reset (nếu không sẽ báo rõ nguyên nhân).
+ *
  * Tuỳ chọn (thêm sau dấu "--"):
  *   npm run app:reset -- --yes                  bỏ qua bước hỏi xác nhận
  *   npm run app:reset -- --seed                 nạp thêm dữ liệu mẫu (student1/2, từ vựng, đề thi...)
@@ -178,6 +183,50 @@ function ask(question) {
   });
 }
 
+async function verifyBackendLogin(target, port) {
+  const backendPort = Number(process.env.PORT) || 5000;
+  const url = `http://localhost:${backendPort}/api/admin/auth/login`;
+  const otherFlag = port === DOCKER_PORT ? '--local' : '--docker';
+  const results = [];
+
+  for (const acc of ADMINS) {
+    let res;
+    try {
+      res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: acc.email, password: acc.password }),
+        signal: AbortSignal.timeout(8000),
+      });
+    } catch {
+      warn(`Backend chưa chạy tại cổng ${backendPort} nên chưa kiểm tra được đăng nhập. Khi chạy Backend, đăng nhập bằng 2 admin ở trên.`);
+      return;
+    }
+    const json = await res.json().catch(() => ({}));
+    results.push({ acc, status: res.status, message: json.message || '' });
+  }
+
+  const good = results.filter((r) => r.status === 200);
+  if (good.length === results.length) {
+    ok(`Kiểm tra đăng nhập qua Backend (cổng ${backendPort}): cả ${results.length} admin đều vào được.`);
+    return;
+  }
+
+  const bad = results.filter((r) => r.status !== 200);
+  for (const r of bad) warn(`Đăng nhập ${r.acc.email} thất bại: HTTP ${r.status} - ${r.message}`);
+
+  if (bad.some((r) => /secretOrPrivateKey/i.test(r.message))) {
+    warn('Backend thiếu JWT_SECRET / JWT_REFRESH_SECRET. Kiểm tra Backend/.env (copy từ .env.example) rồi khởi động lại Backend.');
+  } else if (bad.some((r) => r.status === 401)) {
+    warn(
+      `Backend đang đọc một database KHÁC với nơi vừa reset (${target}).\n` +
+      `  - Backend chạy bằng Docker (npm run app) → dùng MySQL cổng ${DOCKER_PORT}: chạy lại  npm run app:resettest -- --docker\n` +
+      `  - Backend chạy bằng npm run dev → dùng MySQL cổng ${LOCAL_PORT}: chạy lại  npm run app:resettest -- --local\n` +
+      `  (lần này đã reset cổng ${port}, hãy thử ${otherFlag}). Hoặc chỉ cần khởi động lại Backend: Backend sẽ tự tạo 2 admin còn thiếu trong database nó đang dùng.`
+    );
+  }
+}
+
 // ─── Chạy ────────────────────────────────────────────────────────────────────
 (async () => {
   console.log('');
@@ -289,6 +338,8 @@ function ask(question) {
       if (seedRes.status !== 0) fail('Nạp dữ liệu mẫu thất bại (xem log phía trên). 2 admin vẫn đã được tạo.');
       ok('Đã nạp dữ liệu mẫu.');
     }
+
+    await verifyBackendLogin(target, port);
 
     console.log(`
 \x1b[32m═══════════════════════════════════════════════\x1b[0m

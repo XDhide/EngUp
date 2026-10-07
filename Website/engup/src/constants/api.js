@@ -69,8 +69,15 @@ export const API_ADMIN_SYSTEM_STREAK_CHECK = '/admin/system/streak/check';
 export const API_ADMIN_SYSTEM_STREAK_RUN = '/admin/system/streak/run';
 export const API_ADMIN_SYSTEM_NOTIF_CHECK = '/admin/system/notifications/check';
 export const API_ADMIN_SYSTEM_NOTIF_TEST = '/admin/system/notifications/test';
+export const API_ADMIN_SYSTEM_NOTIF_BROADCAST = '/admin/system/notifications/broadcast';
 export const API_ADMIN_SYSTEM_NOTIF_RUN = '/admin/system/notifications/run-reminder';
 export const API_ADMIN_SYSTEM_ML_CHECK = '/admin/system/ml/check';
+
+export const API_ADMIN_SYSTEM_ML_TEST = '/admin/system/ml/test';
+
+export const API_LEARNING_PATHS = '/learning-paths';
+export const API_LEARNING_PATH = (id) => `/learning-paths/${id}`;
+export const API_ADMIN_LEARNING_PATHS = '/admin/learning-paths';
 
 // ─── ADMIN: NHẬT KÝ ──────────────────────────────────────────────────────────
 export const API_ADMIN_LOGS_ERRORS = '/admin/logs/errors';

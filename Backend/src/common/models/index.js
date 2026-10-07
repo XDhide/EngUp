@@ -35,6 +35,9 @@ db.Streak = require('./streaks')(sequelize);
 db.UserNote = require('./user_notes')(sequelize);
 db.PlacementQuestion = require('./placement_questions')(sequelize);
 db.SystemJobRun = require('./system_job_runs')(sequelize);
+db.LearningPath = require('./learning_paths')(sequelize);
+db.LearningPathItem = require('./learning_path_items')(sequelize);
+db.LearningPathEnrollment = require('./learning_path_enrollments')(sequelize);
 
 db.NotificationSetting = require('./notification_settings')(sequelize);
 db.Notification = require('./notifications')(sequelize);

@@ -4,7 +4,7 @@ import {
   KeyboardAvoidingView, Platform, Alert, ActivityIndicator,
 } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, Typography, Spacing, Rounded } from '../constants/theme';
 import { AppHeader } from '../components/common/AppHeader';
 import { AppButton } from '../components/common/AppButton';
@@ -31,6 +31,7 @@ interface Draft {
 const emptyDraft: Draft = { title: '', content: '', color: 'yellow', is_pinned: false, ref_type: 'none', ref_id: null, ref_label: null };
 
 export default function NotesScreen() {
+  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ ref_type?: string; ref_id?: string; ref_label?: string }>();
   const [notes, setNotes] = useState<UserNote[]>([]);
   const [loading, setLoading] = useState(true);
@@ -155,11 +156,11 @@ export default function NotesScreen() {
           ListEmptyComponent={<Text style={styles.empty}>{query || filter !== 'all' ? 'Không có ghi chú phù hợp.' : 'Chưa có ghi chú nào.\nBấm “+ Ghi chú” để thêm ghi chú đầu tiên.'}</Text>}
         />
       )}
-      <TouchableOpacity style={styles.fab} onPress={openNew} activeOpacity={0.85}><Text style={styles.fabText}>+ Ghi chú</Text></TouchableOpacity>
+      <TouchableOpacity style={[styles.fab, { bottom: 28 + insets.bottom }]} onPress={openNew} activeOpacity={0.85}><Text style={styles.fabText}>+ Ghi chú</Text></TouchableOpacity>
 
       <Modal visible={!!draft} animationType="slide" transparent onRequestClose={() => setDraft(null)}>
         <KeyboardAvoidingView style={styles.backdrop} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-          <View style={styles.sheet}>
+          <View style={[styles.sheet, { paddingBottom: Spacing.margin + insets.bottom }]}>
             <Text style={styles.sheetTitle}>{draft?.id ? 'Sửa ghi chú' : 'Ghi chú mới'}</Text>
             <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ gap: Spacing.sm }}>
               {draftError ? <ErrorBanner message={draftError} /> : null}

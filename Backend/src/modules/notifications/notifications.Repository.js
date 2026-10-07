@@ -10,6 +10,12 @@ async function upsertSettings(userId, fieldsToUpdate) {
     where: { user_id: userId },
     defaults: { user_id: userId }
   });
+  if (fieldsToUpdate.push_token) {
+    await NotificationSetting.update(
+      { push_token: null },
+      { where: { push_token: fieldsToUpdate.push_token, user_id: { [Op.ne]: userId } } }
+    );
+  }
   await settings.update(fieldsToUpdate);
   return settings;
 }

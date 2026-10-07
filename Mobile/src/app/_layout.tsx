@@ -46,6 +46,9 @@ export default function RootLayout() {
           <Stack.Screen name="notification-settings" />
           <Stack.Screen name="notes" />
           <Stack.Screen name="contribute" />
+          <Stack.Screen name="learning-paths" />
+          <Stack.Screen name="learning-path-detail" />
+          <Stack.Screen name="learning-path-create" />
         </Stack>
       </AuthProvider>
     </SafeAreaProvider>

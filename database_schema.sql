@@ -361,7 +361,7 @@ CREATE TABLE audit_logs (
 
 CREATE TABLE admin_content_approval_queue (
   id            BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  content_type  ENUM('reading_article','test_question','vocabulary_word') NOT NULL,
+  content_type  ENUM('reading_article','test_question','vocabulary_word','learning_path') NOT NULL,
   content_id    BIGINT UNSIGNED NOT NULL,
   submitted_by  BIGINT UNSIGNED NULL,
   title         VARCHAR(255) NULL,
@@ -450,6 +450,42 @@ CREATE TABLE system_job_runs (
   duration_ms    INT UNSIGNED NULL,
   created_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   INDEX idx_job_runs_name_date (job_name, created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE learning_paths (
+  id           BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  title        VARCHAR(255) NOT NULL,
+  description  TEXT NULL,
+  level        VARCHAR(10) NULL,
+  created_by   BIGINT UNSIGNED NULL,
+  is_approved  BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT fk_paths_creator FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
+  INDEX idx_paths_approved (is_approved, created_at),
+  INDEX idx_paths_creator (created_by)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE learning_path_items (
+  id           BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  path_id      BIGINT UNSIGNED NOT NULL,
+  item_type    ENUM('word','reading','listening') NOT NULL,
+  item_id      BIGINT UNSIGNED NOT NULL,
+  order_index  INT UNSIGNED NOT NULL DEFAULT 0,
+  CONSTRAINT fk_path_items_path FOREIGN KEY (path_id) REFERENCES learning_paths(id) ON DELETE CASCADE,
+  UNIQUE KEY uq_path_item (path_id, item_type, item_id),
+  INDEX idx_path_items_order (path_id, order_index)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE learning_path_enrollments (
+  id            BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id       BIGINT UNSIGNED NOT NULL,
+  path_id       BIGINT UNSIGNED NOT NULL,
+  completed_at  DATETIME NULL,
+  created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_path_enroll_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  CONSTRAINT fk_path_enroll_path FOREIGN KEY (path_id) REFERENCES learning_paths(id) ON DELETE CASCADE,
+  UNIQUE KEY uq_path_enroll (user_id, path_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 SET FOREIGN_KEY_CHECKS = 1;

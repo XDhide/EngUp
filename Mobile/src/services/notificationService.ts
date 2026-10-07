@@ -9,6 +9,7 @@ export interface NotificationSettings {
   /** "HH:mm" hoặc null nếu chưa đặt */
   daily_reminder_time: string | null;
   review_reminder_enabled: boolean;
+  has_push_token?: boolean;
 }
 
 export interface AppNotification {
@@ -31,6 +32,7 @@ export const notificationService = {
     return {
       daily_reminder_time: toHHmm(r.daily_reminder_time),
       review_reminder_enabled: !!r.review_reminder_enabled,
+      has_push_token: !!r.has_push_token,
     };
   },
 
@@ -42,6 +44,7 @@ export const notificationService = {
     return {
       daily_reminder_time: toHHmm(r.daily_reminder_time),
       review_reminder_enabled: !!r.review_reminder_enabled,
+      has_push_token: !!r.has_push_token,
     };
   },
 

@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { NAV_ITEMS } from '../../constants';
+import { NAV_GROUPS } from '../../constants';
 import { useAuth } from '../../hooks/useAuth';
 import { LinkButton } from '../ui';
 
@@ -9,9 +9,13 @@ export default function Sidebar({ open, onNavigate }) {
     <aside className={`sidebar${open ? ' open' : ''}`}>
       <div className="sidebar__brand">EngUp Admin</div>
       <nav className="sidebar__nav">
-        <div className="sidebar__group">Hệ thống</div>
-        {NAV_ITEMS.map((n) => (
-          <NavLink key={n.to} to={n.to} end={n.end} className="sidebar__link" onClick={onNavigate}>{n.label}</NavLink>
+        {NAV_GROUPS.map((g) => (
+          <div key={g.label} className="sidebar__section">
+            <div className="sidebar__group">{g.label}</div>
+            {g.items.map((n) => (
+              <NavLink key={n.to} to={n.to} end={n.end} className="sidebar__link" onClick={onNavigate}>{n.label}</NavLink>
+            ))}
+          </div>
         ))}
       </nav>
       <div className="sidebar__foot">

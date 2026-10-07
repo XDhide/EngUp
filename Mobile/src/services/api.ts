@@ -67,6 +67,7 @@ export const API_NOTIFICATION_READ = (id: number) => `/notifications/${id}/read`
 export const API_ML_HEALTH                    = '/health';
 export const API_ML_PREDICT                   = '/predict';
 
+export const API_NOTIFICATIONS_TEST           = '/notifications/test';
 export const API_NOTES                        = '/notes';
 export const API_NOTE = (id: number) => `/notes/${id}`;
 
@@ -75,3 +76,7 @@ export const API_CONTRIB_READING              = '/contributions/reading';
 export const API_CONTRIB_VOCABULARY           = '/contributions/vocabulary';
 export const API_CONTRIB_TEST_QUESTION        = '/contributions/test-questions';
 export const API_CONTRIB_ITEM = (id: number) => `/contributions/${id}`;
+
+export const API_LEARNING_PATHS                = '/learning-paths';
+export const API_LEARNING_PATH = (id: number) => `/learning-paths/${id}`;
+export const API_LEARNING_PATH_ENROLL = (id: number) => `/learning-paths/${id}/enroll`;

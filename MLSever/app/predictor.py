@@ -90,38 +90,58 @@ class Predictor:
         return np.clip(bundle["model"].predict(bundle["scaler"].transform(X)), 0.0, 1.0)
 
     def predict(self, history: Sequence[ReviewEvent], now: datetime) -> Prediction:
+        return self.predict_many([(history, now)])[0]
+
+    def predict_many(self, requests: Sequence[tuple[Sequence[ReviewEvent], datetime]]) -> list[Prediction]:
         cfg = get_settings()
-        history = sorted(history, key=lambda e: e.reviewed_at)
         bundle = self._bundle
+        prepared = []
+        rows: list[dict] = []
 
-        if bundle is None or len(history) < cfg.min_history_for_ml:
+        for history, now in requests:
+            history = sorted(history, key=lambda e: e.reviewed_at)
+            if bundle is None or len(history) < cfg.min_history_for_ml:
+                prepared.append((history, now, None))
+                continue
+            correct = sum(1 for e in history if is_recalled(e.result))
+            wrong = len(history) - correct
+            last_at = history[-1].reviewed_at
+            elapsed = max((now - last_at).total_seconds() / 86400, 0.0)
+            start = len(rows)
+            rows.append(feature_dict(correct, wrong, elapsed))
+            rows.extend(feature_dict(correct, wrong, d) for d in _GRID_DAYS)
+            prepared.append((history, now, (start, last_at)))
+
+        probs = self._proba(bundle, rows) if rows else np.empty(0)
+        grid_n = len(_GRID_DAYS)
+        out: list[Prediction] = []
+
+        for history, now, meta in prepared:
+            if meta is None:
+                sm2 = predict_sm2(history, now)
+                out.append(Prediction(sm2.recall_probability, sm2.next_review_at, True, None))
+                continue
+
+            start, last_at = meta
+            p_now = float(probs[start])
+            curve = np.minimum.accumulate(probs[start + 1:start + 1 + grid_n])
+
+            delta = _crossing(_GRID_DAYS, curve, cfg.target_retention)
+            if delta is None:
+                delta = float(_GRID_DAYS[-1])
+            half = _crossing(_GRID_DAYS, curve, 0.5)
+
             sm2 = predict_sm2(history, now)
-            return Prediction(sm2.recall_probability, sm2.next_review_at, True, None)
-
-        correct = sum(1 for e in history if is_recalled(e.result))
-        wrong = len(history) - correct
-        last_at = history[-1].reviewed_at
-        elapsed = max((now - last_at).total_seconds() / 86400, 0.0)
-
-        p_now = float(self._proba(bundle, [feature_dict(correct, wrong, elapsed)])[0])
-        curve = np.minimum.accumulate(self._proba(bundle, [feature_dict(correct, wrong, d) for d in _GRID_DAYS]))
-
-        delta = _crossing(_GRID_DAYS, curve, cfg.target_retention)
-        if delta is None:
-            delta = float(_GRID_DAYS[-1])
-        half = _crossing(_GRID_DAYS, curve, 0.5)
-
-        # Chặn lịch ôn: không quá max_sm2_multiple × khoảng cách SM-2 và không quá max_interval_days
-        sm2 = predict_sm2(history, now)
-        cap = min(cfg.max_interval_days, max(cfg.max_sm2_multiple * sm2.interval_days, 1.0))
-        delta = min(delta, cap)
-        return Prediction(
-            recall_probability=round(p_now, 4),
-            next_review_at=max(last_at + timedelta(days=delta), now),
-            used_fallback_sm2=False,
-            model_version=bundle["version"],
-            half_life_hours=round(half * 24, 2) if half is not None else None,
-        )
+            cap = min(cfg.max_interval_days, max(cfg.max_sm2_multiple * sm2.interval_days, 1.0))
+            delta = min(delta, cap)
+            out.append(Prediction(
+                recall_probability=round(p_now, 4),
+                next_review_at=max(last_at + timedelta(days=delta), now),
+                used_fallback_sm2=False,
+                model_version=bundle["version"],
+                half_life_hours=round(half * 24, 2) if half is not None else None,
+            ))
+        return out
 
 
 predictor = Predictor()

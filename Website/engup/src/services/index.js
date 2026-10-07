@@ -8,3 +8,4 @@ export { testsService } from './testsService';
 export { logsService } from './logsService';
 export { placementService } from './placementService';
 export { systemService } from './systemService';
+export { learningPathService } from './learningPathService';
