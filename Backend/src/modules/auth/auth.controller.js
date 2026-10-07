@@ -95,7 +95,7 @@ async function updateMe(req, res, next) {
 
 async function getPlacementTestQuestions(req, res, next) {
   try {
-    const data = authService.getPlacementTestQuestions();
+    const data = await authService.getPlacementTestQuestions();
 
     return successResponse(res, {
       message: 'Lấy danh sách câu hỏi placement test thành công',

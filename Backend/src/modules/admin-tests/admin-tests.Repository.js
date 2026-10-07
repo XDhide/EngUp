@@ -37,6 +37,10 @@ async function countQuestionsOfTestSet(testSetId, transaction) {
 
 // ---------- Câu hỏi ----------
 
+async function findQuestionsOfTestSet(testSetId) {
+  return TestQuestion.findAll({ where: { test_set_id: testSetId }, order: [['order_index', 'ASC'], ['id', 'ASC']] });
+}
+
 async function findQuestionById(id, transaction) {
   return TestQuestion.findByPk(id, { transaction });
 }
@@ -77,6 +81,7 @@ async function createAuditLog({ actor_id, action, target_type, target_id, detail
 }
 
 module.exports = {
+  findQuestionsOfTestSet,
   withTransaction,
   findTestSetById,
   createTestSet,

@@ -38,6 +38,10 @@ async function createNotification({ user_id, title, body, type }) {
   return Notification.create({ user_id, title, body, type });
 }
 
+async function findRecentNotification(userId, type, since) {
+  return Notification.findOne({ where: { user_id: userId, type, created_at: { [Op.gte]: since } } });
+}
+
 async function findTemplateByType(type) {
   return NotificationTemplate.findOne({ where: { type } });
 }
@@ -46,7 +50,7 @@ async function findSettingsForReminderJob() {
   return NotificationSetting.findAll({
     where: {
       review_reminder_enabled: true,
-      push_token: { [Op.ne]: null }
+      daily_reminder_time: { [Op.ne]: null }
     }
   });
 }
@@ -59,5 +63,6 @@ module.exports = {
   markAsRead,
   createNotification,
   findTemplateByType,
+  findRecentNotification,
   findSettingsForReminderJob
 };

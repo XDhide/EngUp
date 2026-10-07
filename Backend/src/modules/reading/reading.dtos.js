@@ -4,7 +4,8 @@ function toArticleListItemDto(article) {
     title: article.title,
     difficulty: article.difficulty,
     topic: article.topic,
-    is_ai_generated: article.is_ai_generated
+    is_ai_generated: article.is_ai_generated,
+    question_count: article.get ? Number(article.get('question_count') ?? 0) : undefined
   };
 }
 
@@ -30,6 +31,7 @@ function toArticleDetailDto(article) {
 function toQuestionAdminDto(question) {
   return {
     id: question.id,
+    article_id: question.article_id,
     question_text: question.question_text,
     options: question.options,
     correct_answer: question.correct_answer,
@@ -53,5 +55,6 @@ function toArticleAdminDto(article) {
 module.exports = {
   toArticleListItemDto,
   toArticleDetailDto,
-  toArticleAdminDto
+  toArticleAdminDto,
+  toQuestionAdminDto
 };

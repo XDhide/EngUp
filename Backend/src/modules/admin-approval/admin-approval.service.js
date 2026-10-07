@@ -28,6 +28,44 @@ async function getPendingItems(requester, { type } = {}) {
   return { items: items.map(toQueueItemDto) };
 }
 
+const TYPE_LABELS = {
+  reading_article: 'bài đọc',
+  test_question: 'câu hỏi đề thi',
+  vocabulary_word: 'từ vựng'
+};
+
+async function notifySubmitter(item, { approved, reason }, transaction) {
+  if (!item.submitted_by) return;
+  const label = TYPE_LABELS[item.content_type] || 'nội dung';
+  const name = item.title ? ` "${String(item.title).slice(0, 80)}"` : '';
+  await adminApprovalRepository.createNotification(
+    {
+      user_id: item.submitted_by,
+      type: approved ? 'content_approved' : 'content_rejected',
+      title: approved ? 'Đóng góp của bạn đã được duyệt 🎉' : 'Đóng góp của bạn chưa được duyệt',
+      body: approved
+        ? `Cảm ơn bạn! ${label[0].toUpperCase()}${label.slice(1)}${name} đã được duyệt và hiển thị cho mọi người.`
+        : `${label[0].toUpperCase()}${label.slice(1)}${name} bị từ chối. Lý do: ${reason}`
+    },
+    transaction
+  );
+}
+
+async function getItemDetail(requester, queueId) {
+  assertAdmin(requester);
+  const item = await adminApprovalRepository.findQueueItemById(queueId);
+  if (!item) {
+    throw new AppError('Yêu cầu duyệt không tồn tại', 404);
+  }
+  const content = await adminApprovalRepository.getContentDetail(item.content_type, item.content_id);
+  return {
+    ...toQueueItemDto(item),
+    status: item.status,
+    reject_reason: item.reject_reason || null,
+    content
+  };
+}
+
 async function approveContent(requester, queueId) {
   assertAdmin(requester);
 
@@ -55,6 +93,7 @@ async function approveContent(requester, queueId) {
       },
       transaction
     );
+    await notifySubmitter(item, { approved: true }, transaction);
   });
 
   return null;
@@ -81,6 +120,7 @@ async function rejectContent(requester, queueId, rejectReason) {
       },
       transaction
     );
+    await notifySubmitter(item, { approved: false, reason: rejectReason }, transaction);
   });
 
   return null;
@@ -88,6 +128,7 @@ async function rejectContent(requester, queueId, rejectReason) {
 
 module.exports = {
   getPendingItems,
+  getItemDetail,
   approveContent,
   rejectContent
 };

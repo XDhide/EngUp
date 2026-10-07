@@ -12,8 +12,9 @@ async function getTopics(req, res, next) {
 
 async function getWords(req, res, next) {
   try {
-    const { topic_id, difficulty, limit, offset } = req.query;
-    const data = await vocabularyService.getWords({ topic_id, difficulty, limit, offset });
+    const { topic_id, difficulty, limit, offset, include_pending } = req.query;
+    const includePending = include_pending === 'true' && req.user?.role === 'admin';
+    const data = await vocabularyService.getWords({ topic_id, difficulty, limit, offset, includePending });
     return successResponse(res, { message: 'Lấy danh sách từ vựng thành công', data, statusCode: 200 });
   } catch (err) {
     next(err);

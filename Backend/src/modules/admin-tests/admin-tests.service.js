@@ -149,6 +149,13 @@ async function deleteTestSet(requester, testSetId) {
   });
 }
 
+async function listQuestionsOfTestSet(requester, testSetId) {
+  assertAdmin(requester);
+  await getTestSetOrThrow(testSetId);
+  const questions = await adminTestsRepository.findQuestionsOfTestSet(testSetId);
+  return { questions: questions.map(toQuestionDto) };
+}
+
 // ---------- CRUD câu hỏi ----------
 
 async function createQuestion(requester, payload) {
@@ -252,6 +259,7 @@ async function getAttemptStats(requester, testSetId) {
 }
 
 module.exports = {
+  listQuestionsOfTestSet,
   createTestSet,
   updateTestSet,
   deleteTestSet,

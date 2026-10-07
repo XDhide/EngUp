@@ -1,3 +1,4 @@
+const { Sequelize } = require('sequelize');
 const {
   ReadingArticle,
   ReadingQuestion,
@@ -12,6 +13,12 @@ async function findApprovedArticles({ difficulty, topic } = {}) {
 
   return ReadingArticle.findAll({
     where,
+    attributes: {
+      include: [[
+        Sequelize.literal('(SELECT COUNT(*) FROM reading_questions rq WHERE rq.article_id = ReadingArticle.id)'),
+        'question_count'
+      ]]
+    },
     order: [['created_at', 'DESC']]
   });
 }
@@ -59,15 +66,34 @@ async function findArticleWithQuestionsIncludingAnswers(id) {
   });
 }
 
+async function findQuestionById(id) {
+  return ReadingQuestion.findByPk(id);
+}
+
+async function createQuestion(articleId, data) {
+  return ReadingQuestion.create({ ...data, article_id: articleId });
+}
+
+async function updateQuestion(question, fields) {
+  await question.update(fields);
+  return question;
+}
+
+async function deleteQuestion(question) {
+  return question.destroy();
+}
+
 async function createAttempt(data) {
   return ReadingAttempt.create(data);
 }
 
-async function enqueueApproval(contentId) {
+async function enqueueApproval(contentId, { submittedBy = null, title = null } = {}) {
   return AdminContentApprovalQueue.create({
     content_type: 'reading_article',
     content_id: contentId,
-    status: 'pending'
+    status: 'pending',
+    submitted_by: submittedBy,
+    title: title ? String(title).slice(0, 255) : null
   });
 }
 
@@ -80,6 +106,10 @@ module.exports = {
   updateArticle,
   deleteArticle,
   createQuestionsBulk,
+  findQuestionById,
+  createQuestion,
+  updateQuestion,
+  deleteQuestion,
   findArticleWithQuestionsIncludingAnswers,
   createAttempt,
   enqueueApproval

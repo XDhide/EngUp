@@ -10,6 +10,7 @@ const {
 } = require('../../common/utils/token');
 
 const { PLACEMENT_TEST_QUESTIONS, LEVEL_THRESHOLDS } = require('./placementTest.data');
+const { PlacementQuestion } = require('../../common/models');
 const { toPublicUser, toProfileUser, toPlacementTestQuestionDto } = require('./auth.dtos');
 
 async function getProfile(userId) {
@@ -122,8 +123,29 @@ async function logout({ refresh_token }) {
   return null;
 }
 
-function getPlacementTestQuestions() {
-  const questions = PLACEMENT_TEST_QUESTIONS.map(toPlacementTestQuestionDto);
+async function loadActivePlacementQuestions() {
+  try {
+    const rows = await PlacementQuestion.findAll({
+      where: { is_active: true },
+      order: [['order_index', 'ASC'], ['id', 'ASC']]
+    });
+    if (rows.length > 0) {
+      return rows.map((r) => ({
+        id: Number(r.id),
+        level: r.level,
+        question_text: r.question_text,
+        options: r.options,
+        correct_option_id: r.correct_option_id
+      }));
+    }
+  } catch (err) {
+    console.error('Không đọc được placement_questions, dùng bộ câu hỏi mặc định:', err.message);
+  }
+  return PLACEMENT_TEST_QUESTIONS;
+}
+
+async function getPlacementTestQuestions() {
+  const questions = (await loadActivePlacementQuestions()).map(toPlacementTestQuestionDto);
 
   return { questions };
 }
@@ -135,16 +157,17 @@ function calculateSuggestedLevel(correctCount, totalCount) {
 }
 
 async function submitPlacementTest(userId, answers) {
+  const questions = await loadActivePlacementQuestions();
   const answerByQuestionId = new Map(answers.map((a) => [Number(a.question_id), a.answer]));
 
   let correctCount = 0;
-  PLACEMENT_TEST_QUESTIONS.forEach((q) => {
+  questions.forEach((q) => {
     if (answerByQuestionId.get(q.id) === q.correct_option_id) {
       correctCount += 1;
     }
   });
 
-  const suggested_level = calculateSuggestedLevel(correctCount, PLACEMENT_TEST_QUESTIONS.length);
+  const suggested_level = calculateSuggestedLevel(correctCount, questions.length);
 
   await authRepository.createPlacementTestResult({
     user_id: userId,

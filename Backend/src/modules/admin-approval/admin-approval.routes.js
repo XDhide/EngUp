@@ -14,6 +14,7 @@ const router = express.Router();
 router.use(authenticateJWT, requireRole('admin'));
 
 router.get('/pending', validateListPendingQuery, adminApprovalController.getPending);
+router.get('/:id', validateIdParam, adminApprovalController.getDetail);
 router.put('/:id/approve', validateIdParam, adminApprovalController.approve);
 router.put('/:id/reject', validateIdParam, validateRejectBody, adminApprovalController.reject);
 

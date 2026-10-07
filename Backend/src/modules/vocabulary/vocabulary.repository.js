@@ -38,8 +38,9 @@ async function countWordsInTopic(topicId) {
   return VocabularyWord.count({ where: { topic_id: topicId } });
 }
 
-async function findWords({ topic_id, difficulty, limit = 20, offset = 0 } = {}) {
+async function findWords({ topic_id, difficulty, limit = 20, offset = 0, includePending = false } = {}) {
   const where = {};
+  if (!includePending) where.is_approved = true;
   if (topic_id) where.topic_id = topic_id;
   if (difficulty) where.difficulty = difficulty;
 
@@ -51,6 +52,10 @@ async function findWords({ topic_id, difficulty, limit = 20, offset = 0 } = {}) 
   });
 
   return { words: rows, total: count };
+}
+
+async function findWordByText(word) {
+  return VocabularyWord.findOne({ where: { word } });
 }
 
 async function findWordById(id) {
@@ -92,6 +97,7 @@ async function updateDailyNewWordLimit(userId, limit) {
 async function findNewWordsForUser(userId, limit) {
   return VocabularyWord.findAll({
     where: {
+      is_approved: true,
       id: {
         [Op.notIn]: sequelize.literal(
           `(SELECT word_id FROM user_vocabulary_cards WHERE user_id = ${sequelize.escape(userId)})`
@@ -139,6 +145,7 @@ module.exports = {
   findAllTopics,
   findWords,
   findWordById,
+  findWordByText,
   findTopicById,
   findTopicByName,
   createTopic,

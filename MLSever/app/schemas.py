@@ -17,3 +17,4 @@ class PredictRequest(BaseModel):
     word_id: int = Field(ge=1)
     # Tuỳ chọn: nếu Backend không gửi, ML-Service tự đọc review_logs (read-only) của cặp user/word.
     review_history: Optional[List[ReviewItem]] = Field(default=None, max_length=500)
+    dry_run: bool = False

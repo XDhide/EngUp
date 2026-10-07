@@ -59,7 +59,7 @@ export default function QuestionEditor({ testSet, onClose }) {
       <p className="cell-sub">Danh sách câu hỏi trong đề (dùng liên kết <b>Lên</b> / <b>Xuống</b> để thay đổi thứ tự câu hỏi)</p>
       {loading && !items.length && <div className="state">Đang tải câu hỏi...</div>}
       {items.map((q, i) => (
-        <QuestionCard key={q.id} index={i} question={q} correctAnswer={answers[q.id]} isFirst={i === 0} isLast={i === items.length - 1}
+        <QuestionCard key={q.id} index={i} question={q} correctAnswer={q.correct_answer ?? answers[q.id]} isFirst={i === 0} isLast={i === items.length - 1}
           onUp={() => move(i, -1)} onDown={() => move(i, 1)} onEdit={() => setModal(q)} onRemove={() => setRemoving(q)} />
       ))}
       {!loading && !items.length && !error && <div className="state">Đề này chưa có câu hỏi.</div>}

@@ -1,6 +1,6 @@
 const AppError = require('../../common/utils/AppError');
 
-const CONTENT_TYPES = ['reading_article', 'test_question'];
+const CONTENT_TYPES = ['reading_article', 'test_question', 'vocabulary_word'];
 const REJECT_REASON_MAX_LENGTH = 500; // khớp cột reject_reason STRING(500)
 
 function isPositiveInt(value) {

@@ -22,6 +22,7 @@ router.put('/test-sets/:id', validateIdParam, validateUpdateTestSet, adminTestsC
 router.delete('/test-sets/:id', validateIdParam, adminTestsController.deleteTestSet);
 
 // Câu hỏi
+router.get('/test-sets/:id/questions', validateIdParam, adminTestsController.listQuestions);
 router.post('/questions', validateCreateQuestion, adminTestsController.createQuestion);
 router.put('/questions/:id', validateIdParam, validateUpdateQuestion, adminTestsController.updateQuestion);
 router.delete('/questions/:id', validateIdParam, adminTestsController.deleteQuestion);

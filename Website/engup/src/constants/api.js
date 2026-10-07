@@ -35,6 +35,8 @@ export const API_READING_ARTICLES = '/reading/articles';
 export const API_READING_ARTICLE_DETAIL = (id) => `/reading/articles/${id}`;
 export const API_ADMIN_READING_ARTICLES = '/admin/reading/articles';
 export const API_ADMIN_READING_ARTICLE = (id) => `/admin/reading/articles/${id}`;
+export const API_ADMIN_READING_QUESTIONS = (articleId) => `/admin/reading/articles/${articleId}/questions`;
+export const API_ADMIN_READING_QUESTION = (id) => `/admin/reading/questions/${id}`;
 
 // ─── ADMIN: HỌC LIỆU – BÀI NGHE ──────────────────────────────────────────────
 export const API_LISTENING_LESSONS = '/listening/lessons';
@@ -45,6 +47,7 @@ export const API_ADMIN_LISTENING_LESSON_AUDIO = (id) => `/admin/listening/lesson
 
 // ─── ADMIN: DUYỆT NỘI DUNG ───────────────────────────────────────────────────
 export const API_ADMIN_APPROVAL_PENDING = '/admin/content/pending';
+export const API_ADMIN_APPROVAL_DETAIL = (id) => `/admin/content/${id}`;
 export const API_ADMIN_APPROVAL_APPROVE = (id) => `/admin/content/${id}/approve`;
 export const API_ADMIN_APPROVAL_REJECT = (id) => `/admin/content/${id}/reject`;
 
@@ -53,9 +56,21 @@ export const API_TESTS = '/tests'; // danh sách đề (lọc ?exam_type=IELTS|T
 export const API_TESTS_QUESTIONS = (testSetId) => `/tests/${testSetId}/questions`;
 export const API_ADMIN_TEST_SETS = '/admin/tests/test-sets';
 export const API_ADMIN_TEST_SET = (id) => `/admin/tests/test-sets/${id}`;
+export const API_ADMIN_TEST_SET_QUESTIONS = (id) => `/admin/tests/test-sets/${id}/questions`;
 export const API_ADMIN_TEST_QUESTIONS = '/admin/tests/questions';
 export const API_ADMIN_TEST_QUESTION = (id) => `/admin/tests/questions/${id}`;
 export const API_ADMIN_TEST_ATTEMPTS = '/admin/tests/attempts'; // ?test_set_id=
+
+export const API_ADMIN_PLACEMENT_QUESTIONS = '/admin/placement/questions';
+export const API_ADMIN_PLACEMENT_QUESTION = (id) => `/admin/placement/questions/${id}`;
+export const API_ADMIN_PLACEMENT_STATS = '/admin/placement/stats';
+
+export const API_ADMIN_SYSTEM_STREAK_CHECK = '/admin/system/streak/check';
+export const API_ADMIN_SYSTEM_STREAK_RUN = '/admin/system/streak/run';
+export const API_ADMIN_SYSTEM_NOTIF_CHECK = '/admin/system/notifications/check';
+export const API_ADMIN_SYSTEM_NOTIF_TEST = '/admin/system/notifications/test';
+export const API_ADMIN_SYSTEM_NOTIF_RUN = '/admin/system/notifications/run-reminder';
+export const API_ADMIN_SYSTEM_ML_CHECK = '/admin/system/ml/check';
 
 // ─── ADMIN: NHẬT KÝ ──────────────────────────────────────────────────────────
 export const API_ADMIN_LOGS_ERRORS = '/admin/logs/errors';

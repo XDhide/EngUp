@@ -77,6 +77,8 @@ CREATE TABLE vocabulary_words (
   example_sentence  TEXT NULL,
   audio_url         VARCHAR(500) NULL,
   difficulty        VARCHAR(10) NULL COMMENT 'A1..C2',
+  is_approved       BOOLEAN NOT NULL DEFAULT TRUE,
+  created_by        BIGINT UNSIGNED NULL,
   created_at        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   CONSTRAINT fk_word_topic FOREIGN KEY (topic_id) REFERENCES vocabulary_topics(id) ON DELETE SET NULL,
@@ -272,6 +274,7 @@ CREATE TABLE test_questions (
   audio_url         VARCHAR(500) NULL,
   passage_text      TEXT NULL,
   order_index       INT UNSIGNED NOT NULL DEFAULT 0,
+  is_approved       BOOLEAN NOT NULL DEFAULT TRUE,
   CONSTRAINT fk_testq_set FOREIGN KEY (test_set_id) REFERENCES test_sets(id) ON DELETE CASCADE,
   INDEX idx_testq_set (test_set_id, order_index)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -358,8 +361,10 @@ CREATE TABLE audit_logs (
 
 CREATE TABLE admin_content_approval_queue (
   id            BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  content_type  ENUM('reading_article','test_question') NOT NULL,
+  content_type  ENUM('reading_article','test_question','vocabulary_word') NOT NULL,
   content_id    BIGINT UNSIGNED NOT NULL,
+  submitted_by  BIGINT UNSIGNED NULL,
+  title         VARCHAR(255) NULL,
   status        ENUM('pending','approved','rejected') NOT NULL DEFAULT 'pending',
   reject_reason VARCHAR(500) NULL,
   reviewed_by   BIGINT UNSIGNED NULL,
@@ -402,6 +407,49 @@ CREATE TABLE subscriptions (
   created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT fk_sub_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
   CONSTRAINT fk_sub_plan FOREIGN KEY (plan_id) REFERENCES subscription_plans(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+
+CREATE TABLE user_notes (
+  id          BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id     BIGINT UNSIGNED NOT NULL,
+  title       VARCHAR(150) NULL,
+  content     TEXT NOT NULL,
+  color       VARCHAR(20) NULL,
+  is_pinned   BOOLEAN NOT NULL DEFAULT FALSE,
+  ref_type    ENUM('none','word','reading','listening','test') NOT NULL DEFAULT 'none',
+  ref_id      BIGINT UNSIGNED NULL,
+  ref_label   VARCHAR(255) NULL,
+  created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT fk_notes_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  INDEX idx_notes_user (user_id, is_pinned, updated_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE placement_questions (
+  id                 BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  level              VARCHAR(10) NOT NULL,
+  question_text      TEXT NOT NULL,
+  options            JSON NOT NULL,
+  correct_option_id  VARCHAR(10) NOT NULL,
+  order_index        INT UNSIGNED NOT NULL DEFAULT 0,
+  is_active          BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at         DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at         DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_placement_active (is_active, order_index)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE system_job_runs (
+  id             BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  job_name       VARCHAR(60) NOT NULL,
+  `trigger`      ENUM('cron','manual') NOT NULL DEFAULT 'cron',
+  status         ENUM('success','partial','failed') NOT NULL,
+  target_date    DATE NULL,
+  summary        JSON NULL,
+  error_message  TEXT NULL,
+  duration_ms    INT UNSIGNED NULL,
+  created_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_job_runs_name_date (job_name, created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 SET FOREIGN_KEY_CHECKS = 1;

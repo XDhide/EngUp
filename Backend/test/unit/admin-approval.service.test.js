@@ -73,7 +73,7 @@ test('getPendingItems: thiếu user bị 403', async () => {
   await assert.rejects(service.getPendingItems(undefined, {}), { statusCode: 403 });
 });
 
-test('getPendingItems: chỉ trả đúng 4 field {id, content_type, content_id, created_at}', async () => {
+test('getPendingItems: chỉ trả các field công khai (không lộ reject_reason, reviewed_by...)', async () => {
   db.queue.push(queueItem({ reject_reason: 'x', reviewed_by: 1, status: 'pending' }));
 
   const result = await service.getPendingItems(ADMIN, {});
@@ -84,7 +84,10 @@ test('getPendingItems: chỉ trả đúng 4 field {id, content_type, content_id,
       id: 1,
       content_type: 'reading_article',
       content_id: 100,
-      created_at: new Date('2026-09-01T00:00:00Z')
+      created_at: new Date('2026-09-01T00:00:00Z'),
+      title: null,
+      submitted_by: null,
+      submitter_name: null
     }
   ]);
 });
@@ -135,7 +138,8 @@ test('approveContent: nội dung gốc đã bị xoá -> 404, không ghi gì', a
 
 for (const [type, contentId] of [
   ['reading_article', 100],
-  ['test_question', 55]
+  ['test_question', 55],
+  ['vocabulary_word', 12]
 ]) {
   test(`approveContent (${type}): set is_approved trên bảng nội dung + cập nhật queue + audit`, async () => {
     db.queue.push(queueItem({ id: 3, content_type: type, content_id: contentId }));
@@ -219,4 +223,42 @@ test('rejectContent: vẫn từ chối được khi nội dung gốc đã bị x
   await service.rejectContent(ADMIN, 5, 'Nội dung đã xoá');
 
   assert.equal(calls[0][0], 'markQueueItemReviewed');
+});
+
+
+test('approveContent: nội dung do người dùng gửi -> tạo thông báo content_approved cho họ', async () => {
+  db.queue.push(queueItem({ id: 6, content_type: 'vocabulary_word', content_id: 12, submitted_by: 42, title: 'resilient' }));
+  db.contents.add('vocabulary_word:12');
+  const notes = [];
+  repo.createNotification = async (n, tx) => { notes.push(n); };
+
+  await service.approveContent(ADMIN, 6);
+
+  assert.equal(notes.length, 1);
+  assert.equal(notes[0].user_id, 42);
+  assert.equal(notes[0].type, 'content_approved');
+  assert.match(notes[0].body, /resilient/);
+});
+
+test('rejectContent: nội dung do người dùng gửi -> thông báo content_rejected kèm lý do', async () => {
+  db.queue.push(queueItem({ id: 7, submitted_by: 42, title: 'Bài đọc thử' }));
+  const notes = [];
+  repo.createNotification = async (n) => { notes.push(n); };
+
+  await service.rejectContent(ADMIN, 7, 'Nội dung chưa chính xác');
+
+  assert.equal(notes.length, 1);
+  assert.equal(notes[0].type, 'content_rejected');
+  assert.match(notes[0].body, /Nội dung chưa chính xác/);
+});
+
+test('approveContent: nội dung AI/hệ thống (không có submitted_by) -> không tạo thông báo', async () => {
+  db.queue.push(queueItem({ id: 8 }));
+  db.contents.add('reading_article:100');
+  let called = false;
+  repo.createNotification = async () => { called = true; };
+
+  await service.approveContent(ADMIN, 8);
+
+  assert.equal(called, false);
 });

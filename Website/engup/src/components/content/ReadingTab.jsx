@@ -7,6 +7,7 @@ import { Badge, DataTable, ErrorBanner, FilterChips, InfoNote, LinkButton, Pagin
 import LevelBadge from '../common/LevelBadge';
 import DeleteDialog from '../common/DeleteDialog';
 import FormPanel from './FormPanel';
+import ReadingQuestionsPanel from './ReadingQuestionsPanel';
 
 const PAGE_SIZE = 10;
 const LEVELS = [{ value: '', label: 'Tất cả' }, ...CEFR_LEVELS.map((l) => ({ value: l, label: l }))];
@@ -19,9 +20,8 @@ function ArticleForm({ article, onSaved, onCancel }) {
 
   const submit = async () => {
     const payload = { title: v.title.trim(), content: v.content.trim(), topic: clean(v.topic), difficulty: clean(v.difficulty) };
-    if (editing) await readingService.update(article.id, payload);
-    else await readingService.create(payload);
-    onSaved();
+    const saved = editing ? await readingService.update(article.id, payload) : await readingService.create(payload);
+    onSaved(saved, !editing);
   };
 
   return (
@@ -44,6 +44,7 @@ export default function ReadingTab({ onChanged }) {
   const [editing, setEditing] = useState(null);
   const [removing, setRemoving] = useState(null);
   const [loadErr, setLoadErr] = useState('');
+  const [questionsFor, setQuestionsFor] = useState(null);
 
   const { data, loading, error, reload } = useFetch(() => readingService.list({ difficulty: level }), [level]);
   const kw = search.trim().toLowerCase();
@@ -61,9 +62,12 @@ export default function ReadingTab({ onChanged }) {
     { key: 'title', header: 'Tiêu đề', render: (a) => <span className="cell-strong">{a.title}</span> },
     { key: 'topic', header: 'Chủ đề', render: (a) => a.topic || '—' },
     { key: 'difficulty', header: 'Cấp độ', render: (a) => <LevelBadge level={a.difficulty} /> },
+    { key: 'questions', header: 'Câu hỏi', render: (a) => (
+      <Badge tone={a.question_count > 0 ? 'ok' : 'warn'}>{a.question_count ?? 0} câu</Badge>
+    ) },
     { key: 'ai', header: 'Nguồn', render: (a) => <Badge tone={a.is_ai_generated ? 'warn' : 'off'}>{a.is_ai_generated ? 'AI tạo' : 'Biên tập viên'}</Badge> },
     { key: 'action', header: 'Thao tác', align: 'right', render: (a) => (
-      <span className="actions"><LinkButton onClick={() => startEdit(a)}>Sửa</LinkButton><LinkButton tone="danger" onClick={() => setRemoving(a)}>Xóa</LinkButton></span>
+      <span className="actions"><LinkButton onClick={() => { setEditing(null); setQuestionsFor(a); }}>Câu hỏi</LinkButton><LinkButton onClick={() => { setQuestionsFor(null); startEdit(a); }}>Sửa</LinkButton><LinkButton tone="danger" onClick={() => setRemoving(a)}>Xóa</LinkButton></span>
     ) },
   ];
 
@@ -81,7 +85,10 @@ export default function ReadingTab({ onChanged }) {
           <Pagination page={page} totalPages={Math.max(1, Math.ceil(all.length / PAGE_SIZE))} onChange={setPage} summary={`Tổng số ${all.length} bài đọc`} />
         </Panel>
       </div>
-      <ArticleForm key={editing?.id ?? 'new'} article={editing} onCancel={() => setEditing(null)} onSaved={() => { setEditing(null); refresh(); }} />
+      {questionsFor
+        ? <ReadingQuestionsPanel key={questionsFor.id} article={questionsFor} onClose={() => setQuestionsFor(null)} onChanged={refresh} />
+        : <ArticleForm key={editing?.id ?? 'new'} article={editing} onCancel={() => setEditing(null)}
+          onSaved={(saved, created) => { setEditing(null); refresh(); if (created && saved?.id) setQuestionsFor(saved); }} />}
       <DeleteDialog target={removing} label={removing ? `bài đọc "${removing.title}"` : ''} onClose={() => setRemoving(null)}
         onDelete={async (a) => { await readingService.remove(a.id); if (editing?.id === a.id) setEditing(null); refresh(); }} />
     </div>

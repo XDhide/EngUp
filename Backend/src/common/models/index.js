@@ -32,6 +32,10 @@ db.UserTestAttempt = require('./user_test_attempts')(sequelize);
 
 db.Streak = require('./streaks')(sequelize);
 
+db.UserNote = require('./user_notes')(sequelize);
+db.PlacementQuestion = require('./placement_questions')(sequelize);
+db.SystemJobRun = require('./system_job_runs')(sequelize);
+
 db.NotificationSetting = require('./notification_settings')(sequelize);
 db.Notification = require('./notifications')(sequelize);
 

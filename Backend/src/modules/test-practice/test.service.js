@@ -1,4 +1,5 @@
 const testRepository = require('./test.Repository');
+const { touchActivity } = require('../streaks/streaks.service');
 const AppError = require('../../common/utils/AppError');
 const { callLlmForJson } = require('../../common/services/llmGradingService');
 const {
@@ -80,6 +81,7 @@ async function submitAttempt(userId, { attempt_id, answers }) {
     submitted_at: new Date(),
     status: 'submitted'
   });
+  touchActivity(userId);
 
   return { score, band_score: bandScore };
 }
@@ -142,6 +144,7 @@ async function submitWriting(userId, testSetId, { attempt_id, content }) {
     submitted_at: new Date(),
     status: 'submitted'
   });
+  touchActivity(userId);
 
   if (!parsed) {
     return {

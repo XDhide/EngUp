@@ -35,6 +35,15 @@ module.exports = (sequelize) => {
       type: DataTypes.STRING(10),
       allowNull: true,
       comment: 'A1..C2'
+    },
+    is_approved: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: true,
+    },
+    created_by: {
+      type: DataTypes.BIGINT.UNSIGNED,
+      allowNull: true,
     }
   }, {
     tableName: 'vocabulary_words',

@@ -44,6 +44,8 @@ export default function RootLayout() {
           <Stack.Screen name="test-list" />
           <Stack.Screen name="test-result" />
           <Stack.Screen name="notification-settings" />
+          <Stack.Screen name="notes" />
+          <Stack.Screen name="contribute" />
         </Stack>
       </AuthProvider>
     </SafeAreaProvider>

@@ -1,10 +1,13 @@
 const readingRepository = require('./reading.repository');
+const { touchActivity } = require('../streaks/streaks.service');
 const AppError = require('../../common/utils/AppError');
 const {
   toArticleListItemDto,
   toArticleDetailDto,
-  toArticleAdminDto
+  toArticleAdminDto,
+  toQuestionAdminDto
 } = require('./reading.dtos');
+const { normalizeReadingQuestion } = require('./reading.questions.util');
 
 const AI_GENERATION_URL = process.env.AI_GENERATION_URL;
 const AI_GENERATION_TIMEOUT_MS = 15000;
@@ -39,7 +42,8 @@ async function submitArticle(userId, articleId, answers) {
   let correctCount = 0;
   const review = questions.map((q) => {
     const submittedAnswer = answerMap.get(q.id);
-    const isCorrect = submittedAnswer !== undefined && submittedAnswer === q.correct_answer;
+    const isCorrect = submittedAnswer !== undefined &&
+      String(submittedAnswer).trim().toUpperCase() === String(q.correct_answer).trim().toUpperCase();
     if (isCorrect) correctCount += 1;
     return {
       question_id: q.id,
@@ -59,6 +63,7 @@ async function submitArticle(userId, articleId, answers) {
     correct_count: correctCount,
     total_count: totalCount
   });
+  touchActivity(userId);
 
   return { score, correct_count: correctCount, total_count: totalCount, review };
 }
@@ -113,15 +118,18 @@ async function generateArticle(requester, { topic, difficulty }) {
   });
 
   await readingRepository.createQuestionsBulk(article.id, generated.questions);
-  await readingRepository.enqueueApproval(article.id);
+  await readingRepository.enqueueApproval(article.id, { submittedBy: null, title: generated.title });
 
   const fullArticle = await readingRepository.findArticleWithQuestionsIncludingAnswers(article.id);
   return toArticleAdminDto(fullArticle);
 }
 
 // ---- Admin tạo/sửa/xoá bài đọc thủ công (không qua hàng đợi duyệt: admin tự đăng nên duyệt luôn) ----
-async function createArticleManual(requester, { title, content, difficulty, topic }) {
+async function createArticleManual(requester, { title, content, difficulty, topic, questions }) {
   assertAdmin(requester);
+  const normalized = Array.isArray(questions)
+    ? questions.map((q, i) => normalizeReadingQuestion(q, `Câu hỏi ${i + 1}`))
+    : [];
   const article = await readingRepository.createArticle({
     title: title.trim(),
     content: content.trim(),
@@ -131,7 +139,50 @@ async function createArticleManual(requester, { title, content, difficulty, topi
     is_approved: true,
     created_by: requester.id
   });
-  return toArticleAdminDto(article);
+  if (normalized.length) await readingRepository.createQuestionsBulk(article.id, normalized);
+  const full = await readingRepository.findArticleWithQuestionsIncludingAnswers(article.id);
+  return toArticleAdminDto(full);
+}
+
+async function getArticleAdminDetail(requester, articleId) {
+  assertAdmin(requester);
+  const article = await readingRepository.findArticleWithQuestionsById(articleId);
+  if (!article) throw new AppError('Bài đọc không tồn tại', 404);
+  const dto = toArticleAdminDto(article);
+  dto.questions.sort((a, b) => a.id - b.id);
+  return dto;
+}
+
+async function addQuestionManual(requester, articleId, body) {
+  assertAdmin(requester);
+  const article = await readingRepository.findArticleById(articleId);
+  if (!article) throw new AppError('Bài đọc không tồn tại', 404);
+  const data = normalizeReadingQuestion(body);
+  const created = await readingRepository.createQuestion(article.id, data);
+  return toQuestionAdminDto(created);
+}
+
+async function updateQuestionManual(requester, questionId, body) {
+  assertAdmin(requester);
+  const question = await readingRepository.findQuestionById(questionId);
+  if (!question) throw new AppError('Câu hỏi không tồn tại', 404);
+  const merged = {
+    question_text: body.question_text !== undefined ? body.question_text : question.question_text,
+    options: body.options !== undefined ? body.options : question.options,
+    correct_answer: body.correct_answer !== undefined ? body.correct_answer : question.correct_answer,
+    explanation: body.explanation !== undefined ? body.explanation : question.explanation
+  };
+  const data = normalizeReadingQuestion(merged);
+  const updated = await readingRepository.updateQuestion(question, data);
+  return toQuestionAdminDto(updated);
+}
+
+async function deleteQuestionManual(requester, questionId) {
+  assertAdmin(requester);
+  const question = await readingRepository.findQuestionById(questionId);
+  if (!question) throw new AppError('Câu hỏi không tồn tại', 404);
+  await readingRepository.deleteQuestion(question);
+  return null;
 }
 
 async function updateArticleManual(requester, articleId, fields) {
@@ -159,6 +210,10 @@ async function deleteArticleManual(requester, articleId) {
 }
 
 module.exports = {
+  getArticleAdminDetail,
+  addQuestionManual,
+  updateQuestionManual,
+  deleteQuestionManual,
   createArticleManual,
   updateArticleManual,
   deleteArticleManual,

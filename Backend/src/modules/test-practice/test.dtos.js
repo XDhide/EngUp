@@ -1,6 +1,7 @@
 function toTestSetListItemDto(testSet) {
   return {
     id: testSet.id,
+    exam_type: testSet.exam_type,
     title: testSet.title,
     section: testSet.section,
     time_limit_minutes: testSet.time_limit_minutes

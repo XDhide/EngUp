@@ -2,6 +2,7 @@ import { api } from './apiClient';
 import {
   API_VOCABULARY_TOPICS, API_VOCABULARY_TOPIC, API_VOCABULARY_WORDS, API_VOCABULARY_WORD, API_VOCABULARY_WORDS_BULK,
   API_READING_ARTICLES, API_READING_ARTICLE_DETAIL, API_ADMIN_READING_ARTICLES, API_ADMIN_READING_ARTICLE,
+  API_ADMIN_READING_QUESTIONS, API_ADMIN_READING_QUESTION,
   API_LISTENING_LESSONS, API_LISTENING_LESSON_DETAIL, API_ADMIN_LISTENING_LESSONS,
   API_ADMIN_LISTENING_LESSON, API_ADMIN_LISTENING_LESSON_AUDIO,
 } from '../constants/api';
@@ -26,6 +27,10 @@ export const readingService = {
   create: (data) => api.post(API_ADMIN_READING_ARTICLES, data),
   update: (id, data) => api.put(API_ADMIN_READING_ARTICLE(id), data),
   remove: (id) => api.del(API_ADMIN_READING_ARTICLE(id)),
+  adminDetail: (id) => api.get(API_ADMIN_READING_ARTICLE(id)),
+  addQuestion: (articleId, data) => api.post(API_ADMIN_READING_QUESTIONS(articleId), data),
+  updateQuestion: (id, data) => api.put(API_ADMIN_READING_QUESTION(id), data),
+  removeQuestion: (id) => api.del(API_ADMIN_READING_QUESTION(id)),
 };
 
 export const listeningService = {

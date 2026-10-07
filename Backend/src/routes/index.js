@@ -14,11 +14,15 @@ router.use('/admin/content', require('../modules/admin-approval/admin-approval.r
 router.use('/admin/users', require('../modules/admin-users/admin-users.routes'));
 router.use('/admin/tests', require('../modules/admin-tests/admin-tests.routes'));
 router.use('/admin/logs', require('../modules/admin-logs/admin-logs.routes'));
+router.use('/admin/placement', require('../modules/admin-placement/admin-placement.routes'));
+router.use('/admin/system', require('../modules/admin-system/admin-system.routes'));
 router.use('/admin/notifications', adminNotificationsRouter);
 router.use('/admin/dashboard', adminDashboardRouter);
 router.use('/admin/subscriptions', adminSubscriptionsRouter);
 router.use('/notebook', require('../modules/notebook/notebook.routes'));
 router.use('/reading', require('../modules/reading/reading.routes'));
+router.use('/contributions', require('../modules/contributions/contributions.routes'));
+router.use('/notes', require('../modules/notes/notes.routes'));
 
 router.use('/listening', require('../modules/listening/listening.routes'));
 router.use('/writing', require('../modules/writing/writing.routes'));

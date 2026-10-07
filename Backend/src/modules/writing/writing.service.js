@@ -1,3 +1,4 @@
+const { touchActivity } = require('../streaks/streaks.service');
 const writingRepository = require('./writing.repository');
 const AppError = require('../../common/utils/AppError');
 const {
@@ -66,6 +67,7 @@ async function createSubmission(userId, { prompt_id, content }) {
     ai_feedback,
     ai_score
   });
+  touchActivity(userId);
 
   return toSubmissionResultDto(submission);
 }

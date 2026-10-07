@@ -1,3 +1,4 @@
+const { touchActivity } = require('../streaks/streaks.service');
 const listeningRepository = require('./listening.repository');
 const AppError = require('../../common/utils/AppError');
 const {
@@ -76,6 +77,7 @@ async function submitDictation(userId, lessonId, userText) {
     accuracy_percent,
     wrong_words
   });
+  touchActivity(userId);
 
   return toDictationResultDto({ accuracy_percent, wrong_words });
 }

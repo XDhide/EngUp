@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { errorMessage, vocabularyService } from '../../services';
 import { Button, ErrorBanner, TextAreaField, TextField } from '../ui';
 
@@ -11,6 +12,7 @@ export default function TopicModal({ topic, onClose, onSaved }) {
 
   const submit = async (e) => {
     e.preventDefault();
+    e.stopPropagation();
     if (!name.trim()) { setError('Vui lòng nhập tên chủ đề.'); return; }
     setBusy(true); setError('');
     try {
@@ -23,9 +25,9 @@ export default function TopicModal({ topic, onClose, onSaved }) {
     }
   };
 
-  return (
+  return createPortal(
     <div className="backdrop" onClick={busy ? undefined : onClose}>
-      <form className="modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()} onSubmit={submit}>
+      <form className="modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()} onSubmit={submit} onKeyDown={(e) => e.stopPropagation()}>
         <div className="panel__head"><h2 className="panel__title">{topic ? 'Sửa chủ đề' : 'Thêm chủ đề mới'}</h2></div>
         <div className="panel__body">
           <ErrorBanner message={error} />
@@ -38,6 +40,7 @@ export default function TopicModal({ topic, onClose, onSaved }) {
           <Button type="submit" variant="primary" disabled={busy}>{busy ? 'Đang lưu...' : 'Lưu chủ đề'}</Button>
         </div>
       </form>
-    </div>
+    </div>,
+    document.body
   );
 }
