@@ -1,10 +1,12 @@
-const { fn, col, where: sqlWhere } = require('sequelize');
+const { Op } = require('sequelize');
 const {
   Streak,
   User,
   ReviewLog,
   ReadingAttempt,
-  ListeningDictationAttempt
+  ListeningDictationAttempt,
+  UserTestAttempt,
+  WritingSubmission
 } = require('../../common/models');
 
 async function findAllActiveUserIds() {
@@ -16,45 +18,27 @@ async function findAllActiveUserIds() {
   return users.map((u) => Number(u.id));
 }
 
-function dateEqualsClause(columnName, dateStr) {
-  return sqlWhere(fn('DATE', col(columnName)), dateStr);
-}
-
-async function findDistinctUserIdsWithReviewOn(dateStr) {
-  const rows = await ReviewLog.findAll({
-    attributes: [[fn('DISTINCT', col('user_id')), 'user_id']],
-    where: dateEqualsClause('reviewed_at', dateStr),
+async function distinctUserIds(Model, column, start, end) {
+  const rows = await Model.findAll({
+    attributes: ['user_id'],
+    where: { [column]: { [Op.gte]: start, [Op.lt]: end } },
+    group: ['user_id'],
     raw: true
   });
   return rows.map((r) => Number(r.user_id));
 }
 
-async function findDistinctUserIdsWithReadingOn(dateStr) {
-  const rows = await ReadingAttempt.findAll({
-    attributes: [[fn('DISTINCT', col('user_id')), 'user_id']],
-    where: dateEqualsClause('submitted_at', dateStr),
-    raw: true
-  });
-  return rows.map((r) => Number(r.user_id));
-}
+const ACTIVITY_SOURCES = [
+  ['review', ReviewLog, 'reviewed_at'],
+  ['reading', ReadingAttempt, 'submitted_at'],
+  ['listening', ListeningDictationAttempt, 'submitted_at'],
+  ['test', UserTestAttempt, 'submitted_at'],
+  ['writing', WritingSubmission, 'created_at']
+];
 
-async function findDistinctUserIdsWithListeningOn(dateStr) {
-  const rows = await ListeningDictationAttempt.findAll({
-    attributes: [[fn('DISTINCT', col('user_id')), 'user_id']],
-    where: dateEqualsClause('submitted_at', dateStr),
-    raw: true
-  });
-  return rows.map((r) => Number(r.user_id));
-}
-
-async function findActiveUserIdsOnDate(dateStr) {
-  const [reviewUserIds, readingUserIds, listeningUserIds] = await Promise.all([
-    findDistinctUserIdsWithReviewOn(dateStr),
-    findDistinctUserIdsWithReadingOn(dateStr),
-    findDistinctUserIdsWithListeningOn(dateStr)
-  ]);
-
-  return new Set([...reviewUserIds, ...readingUserIds, ...listeningUserIds]);
+async function findActiveUserIdsInRange(start, end) {
+  const lists = await Promise.all(ACTIVITY_SOURCES.map(([, Model, col]) => distinctUserIds(Model, col, start, end)));
+  return new Set(lists.flat());
 }
 
 async function findStreakByUserId(userId) {
@@ -72,7 +56,8 @@ async function saveStreak(userId, fields) {
 
 module.exports = {
   findAllActiveUserIds,
-  findActiveUserIdsOnDate,
+  findActiveUserIdsInRange,
   findStreakByUserId,
-  saveStreak
+  saveStreak,
+  ACTIVITY_SOURCES
 };

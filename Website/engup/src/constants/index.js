@@ -14,7 +14,7 @@ export const QUESTION_TYPES = [
   { value: 'essay', label: 'Viết luận' },
   { value: 'speaking_prompt', label: 'Nói' },
 ];
-export const CONTENT_TYPE_LABELS = { reading_article: 'Bài đọc', test_question: 'Câu hỏi đề thi' };
+export const CONTENT_TYPE_LABELS = { reading_article: 'Bài đọc', test_question: 'Câu hỏi đề thi', vocabulary_word: 'Từ vựng' };
 export const LOG_LEVEL_LABELS = { info: 'Thông tin', warning: 'Cảnh báo', error: 'Lỗi', critical: 'Nghiêm trọng' };
 export const NAV_ITEMS = [
   { to: '/', label: 'Tổng quan', end: true },
@@ -22,5 +22,7 @@ export const NAV_ITEMS = [
   { to: '/content', label: 'Học liệu' },
   { to: '/approval', label: 'Duyệt nội dung' },
   { to: '/tests', label: 'Đề thi' },
+  { to: '/placement', label: 'Test đầu vào' },
+  { to: '/system', label: 'Kiểm tra hệ thống' },
   { to: '/logs', label: 'Nhật ký' },
 ];

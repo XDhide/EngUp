@@ -1,6 +1,15 @@
 const adminTestsService = require('./admin-tests.service');
 const { successResponse } = require('../../common/utils/response');
 
+async function listQuestions(req, res, next) {
+  try {
+    const data = await adminTestsService.listQuestionsOfTestSet(req.user, req.params.id);
+    return successResponse(res, { message: 'Lấy câu hỏi của đề thi thành công', data, statusCode: 200 });
+  } catch (err) {
+    next(err);
+  }
+}
+
 async function createTestSet(req, res, next) {
   try {
     const data = await adminTestsService.createTestSet(req.user, req.body);
@@ -65,6 +74,7 @@ async function getAttemptStats(req, res, next) {
 }
 
 module.exports = {
+  listQuestions,
   createTestSet,
   updateTestSet,
   deleteTestSet,

@@ -10,6 +10,15 @@ async function getPending(req, res, next) {
   }
 }
 
+async function getDetail(req, res, next) {
+  try {
+    const data = await adminApprovalService.getItemDetail(req.user, req.params.id);
+    return successResponse(res, { message: 'Lấy chi tiết yêu cầu duyệt thành công', data, statusCode: 200 });
+  } catch (err) {
+    next(err);
+  }
+}
+
 async function approve(req, res, next) {
   try {
     await adminApprovalService.approveContent(req.user, req.params.id);
@@ -30,6 +39,7 @@ async function reject(req, res, next) {
 
 module.exports = {
   getPending,
+  getDetail,
   approve,
   reject
 };

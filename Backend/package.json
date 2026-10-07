@@ -13,9 +13,10 @@
     "migrate": "node src/scripts/migrate.js up",
     "migrate:down": "node src/scripts/migrate.js down",
     "db:sync": "node src/scripts/syncDb.js",
+    "db:ensure": "node src/common/schema/ensureSchema.js",
     "db:sync:force": "node src/scripts/syncDb.js --force",
     "db:seed": "node src/common/seed/seed.js",
-    "test:unit": "node --test test/unit/admin-approval.service.test.js test/unit/admin-approval.http.test.js test/unit/admin-tests.service.test.js test/unit/admin-tests.http.test.js test/unit/admin-logs.service.test.js test/unit/admin-logs.http.test.js test/unit/admin-dashboard.service.test.js test/unit/admin-dashboard.http.test.js",
+    "test:unit": "node --test test/unit/admin-approval.service.test.js test/unit/admin-approval.http.test.js test/unit/admin-tests.service.test.js test/unit/admin-tests.http.test.js test/unit/admin-logs.service.test.js test/unit/admin-logs.http.test.js test/unit/admin-dashboard.service.test.js test/unit/admin-dashboard.http.test.js test/unit/new-features.test.js",
     "test:api": "python test/test_api.py"
   },
   "dependencies": {

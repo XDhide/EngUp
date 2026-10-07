@@ -1,5 +1,5 @@
 import { QUESTION_TYPES } from '../../constants';
-import { LinkButton } from '../ui';
+import { Badge, LinkButton } from '../ui';
 
 /** Đáp án đúng chỉ hiển thị khi biết (câu vừa tạo/sửa trong phiên): API học viên không trả correct_answer. */
 export default function QuestionCard({ index, question, correctAnswer, isFirst, isLast, onUp, onDown, onEdit, onRemove }) {
@@ -8,7 +8,7 @@ export default function QuestionCard({ index, question, correctAnswer, isFirst, 
   return (
     <div className="q-card">
       <div>
-        <p className="q-card__head">{index + 1}. Câu {index + 1}<span className="q-card__tag">{typeLabel}</span></p>
+        <p className="q-card__head">{index + 1}. Câu {index + 1}<span className="q-card__tag">{typeLabel}</span>{question.is_approved === false && <> <Badge tone="warn">Chờ duyệt</Badge></>}</p>
         {question.passage_text && <div className="preview" style={{ maxHeight: 120, marginBottom: 12 }}>{question.passage_text}</div>}
         <p className="q-card__text">{question.question_text}</p>
         {question.options?.length > 0 && (

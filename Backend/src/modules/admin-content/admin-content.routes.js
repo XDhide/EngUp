@@ -41,7 +41,11 @@ router.use(authenticateJWT, requireAdmin);
 router.use('/vocabulary', adminVocabularyRouter);
 
 // /api/admin/reading/articles
+router.get('/reading/articles/:id', validateReadingIdParam, readingAdminController.getArticle);
 router.post('/reading/articles', validateCreateArticle, readingAdminController.createArticle);
+router.post('/reading/articles/:id/questions', validateReadingIdParam, readingAdminController.addQuestion);
+router.put('/reading/questions/:id', validateReadingIdParam, readingAdminController.updateQuestion);
+router.delete('/reading/questions/:id', validateReadingIdParam, readingAdminController.deleteQuestion);
 router.put('/reading/articles/:id', validateReadingIdParam, validateUpdateArticle, readingAdminController.updateArticle);
 router.delete('/reading/articles/:id', validateReadingIdParam, readingAdminController.deleteArticle);
 

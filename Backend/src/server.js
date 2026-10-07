@@ -11,6 +11,8 @@ const db = require('./common/models');
 const routes = require('./routes');
 const errorMiddleware = require('./common/middlewares/error.middleware');
 const { scheduleStreakJob } = require('./modules/streaks/streaks.job');
+const { startReminderJob } = require('./modules/notifications/jobs/reminderJob');
+const { ensureSchema } = require('./common/schema/ensureSchema');
 
 const app = express();
 
@@ -106,7 +108,9 @@ const PORT = process.env.PORT || 5000;
 (async () => {
   try {
     await testConnection();
+    await ensureSchema();
     scheduleStreakJob();
+    startReminderJob();
     app.listen(PORT, () => {
       console.log(`Server đang chạy tại http://localhost:${PORT}`);
     });

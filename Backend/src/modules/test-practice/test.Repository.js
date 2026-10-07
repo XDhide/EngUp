@@ -13,7 +13,7 @@ async function findTestSetById(id) {
 
 async function findQuestionsByTestSetId(testSetId) {
   return TestQuestion.findAll({
-    where: { test_set_id: testSetId },
+    where: { test_set_id: testSetId, is_approved: true },
     order: [['order_index', 'ASC']]
   });
 }
@@ -34,7 +34,11 @@ async function findAttemptByIdForUser(id, userId) {
 async function findAttemptWithTestSetForUser(id, userId) {
   return UserTestAttempt.findOne({
     where: { id, user_id: userId },
-    include: [{ model: TestSet, as: 'testSet', include: [{ model: TestQuestion, as: 'questions' }] }]
+    include: [{
+      model: TestSet,
+      as: 'testSet',
+      include: [{ model: TestQuestion, as: 'questions', where: { is_approved: true }, required: false }]
+    }]
   });
 }
 

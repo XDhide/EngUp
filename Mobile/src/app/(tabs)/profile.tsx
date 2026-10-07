@@ -117,6 +117,24 @@ export default function ProfileScreen() {
 
           <TouchableOpacity
             style={styles.menuItem}
+            onPress={() => router.push('/notes')}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.menuItemText}>Ghi chú của tôi</Text>
+            <Text style={styles.menuItemArrow}>›</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => router.push('/contribute')}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.menuItemText}>Đóng góp từ vựng, bài học, câu hỏi</Text>
+            <Text style={styles.menuItemArrow}>›</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.menuItem}
             onPress={() => router.push('/notifications')}
             activeOpacity={0.7}
           >

@@ -6,3 +6,5 @@ export { vocabularyService, readingService, listeningService } from './contentSe
 export { approvalService } from './approvalService';
 export { testsService } from './testsService';
 export { logsService } from './logsService';
+export { placementService } from './placementService';
+export { systemService } from './systemService';

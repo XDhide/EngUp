@@ -1,4 +1,5 @@
 const vocabularyRepository = require('./vocabulary.repository');
+const { touchActivity } = require('../streaks/streaks.service');
 const AppError = require('../../common/utils/AppError');
 const {
   toTopicDto,
@@ -48,7 +49,7 @@ async function deleteTopic(requester, topicId) {
   return null;
 }
 
-async function getWords({ topic_id, difficulty, limit, offset }) {
+async function getWords({ topic_id, difficulty, limit, offset, includePending = false }) {
   const parsedLimit = limit ? Number(limit) : 20;
   const parsedOffset = offset ? Number(offset) : 0;
 
@@ -56,7 +57,8 @@ async function getWords({ topic_id, difficulty, limit, offset }) {
     topic_id: topic_id ? Number(topic_id) : undefined,
     difficulty,
     limit: parsedLimit,
-    offset: parsedOffset
+    offset: parsedOffset,
+    includePending
   });
 
   return { words: words.map(toWordListItemDto), total };
@@ -70,7 +72,7 @@ function assertAdmin(requester) {
 
 async function createWord(requester, data) {
   assertAdmin(requester);
-  const word = await vocabularyRepository.createWord(data);
+  const word = await vocabularyRepository.createWord({ ...data, is_approved: true, created_by: requester.id });
   return toWordDto(word);
 }
 
@@ -163,7 +165,9 @@ async function bulkCreateWords(requester, { items, topic_id, difficulty, ai_enri
       phonetic: c.phonetic ? c.phonetic.slice(0, 150) : null,
       example_sentence: c.example_sentence || null,
       difficulty: level,
-      topic_id: topic_id || null
+      topic_id: topic_id || null,
+      is_approved: true,
+      created_by: requester.id
     });
   }
   if (toInsert.length) await vocabularyRepository.bulkCreateWords(toInsert);
@@ -314,6 +318,7 @@ async function submitReview(userId, { card_id, result, response_time_ms }) {
     result,
     response_time_ms
   });
+  touchActivity(userId);
 
   return {
     next_review_at: updatedCard.next_review_at,

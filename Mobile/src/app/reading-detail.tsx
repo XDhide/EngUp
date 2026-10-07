@@ -95,6 +95,14 @@ export default function ReadingDetailScreen() {
       <AppHeader
         title={mode === 'reading' ? 'Bài Đọc' : mode === 'quiz' ? 'Luyện Trắc Nghiệm' : 'Kết Quả Bài Đọc'}
         showBack
+        rightAction={
+          <TouchableOpacity
+            onPress={() => router.push({ pathname: '/notes', params: { ref_type: 'reading', ref_id: String(articleId), ref_label: article?.title ?? '' } })}
+            hitSlop={8}
+          >
+            <Text style={{ fontSize: 22 }}>📝</Text>
+          </TouchableOpacity>
+        }
         onBack={() => {
           if (mode === 'quiz') setMode('reading');
           else router.back();

@@ -13,7 +13,7 @@ export default function QuestionModal({ testSetId, question, nextOrder, onClose,
   const [v, bind] = useFormState({
     question_type: question?.question_type ?? 'multiple_choice',
     question_text: question?.question_text ?? '',
-    correct_answer: '',
+    correct_answer: question?.correct_answer ?? '',
     passage_text: question?.passage_text ?? '',
     audio_url: question?.audio_url ?? '',
   });
@@ -66,13 +66,13 @@ export default function QuestionModal({ testSetId, question, nextOrder, onClose,
                 ))}
               </div>
               <SelectField label="Đáp án đúng" required={!editing} placeholder="Chọn..." options={LETTERS.map((l) => ({ value: l, label: l }))}
-                hint={editing ? 'Để trống nếu không đổi đáp án (API không trả đáp án hiện tại).' : undefined}
+                
                 value={v.correct_answer} onChange={bind('correct_answer')} />
             </>
           )}
           {isFill && (
             <TextField label="Đáp án đúng" required={!editing} value={v.correct_answer} onChange={bind('correct_answer')}
-              hint={editing ? 'Để trống nếu không đổi. Chấm khớp chính xác, phân biệt hoa thường.' : 'Chấm khớp chính xác, phân biệt hoa thường.'} />
+              hint="Chấm khớp chính xác, phân biệt hoa thường." />
           )}
           <TextAreaField label="Đoạn văn / ngữ cảnh (không bắt buộc)" rows={3} value={v.passage_text} onChange={bind('passage_text')} />
           <TextField label="Đường dẫn audio (không bắt buộc)" placeholder="https://..." value={v.audio_url} onChange={bind('audio_url')} />

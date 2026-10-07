@@ -24,7 +24,7 @@ def require_internal_key(x_internal_key: str | None = Header(default=None)):
 
 @router.get("/health")
 def health():
-    return {"status": "ok"}
+    return {"status": "ok", "model_loaded": predictor.loaded, "model_version": predictor.model_version}
 
 
 def _fetch_history(user_id: int, word_id: int) -> list[ReviewEvent]:
@@ -73,7 +73,8 @@ def predict(req: PredictRequest):
         history = _fetch_history(req.user_id, req.word_id)
 
     pred = predictor.predict(history, utcnow())
-    _log_prediction(req.user_id, req.word_id, pred)
+    if not req.dry_run:
+        _log_prediction(req.user_id, req.word_id, pred)
     data = {
         "recall_probability": pred.recall_probability,
         "next_review_at": iso_z(pred.next_review_at),

@@ -114,7 +114,7 @@ test('token student -> 403 (cả 3 endpoint) và không chạm repository', asyn
 
 // ---------- GET /pending ----------
 
-test('GET /pending -> 200, data = { items: [{id, content_type, content_id, created_at}] }', async () => {
+test('GET /pending -> 200, data = { items: [{id, content_type, content_id, created_at, title, submitted_by, submitter_name}] }', async () => {
   fake.queue.push(pendingItem());
 
   const { status, json } = await call('GET', '/pending', { token: adminToken });
@@ -122,7 +122,10 @@ test('GET /pending -> 200, data = { items: [{id, content_type, content_id, creat
   assert.equal(status, 200);
   assert.equal(json.success, true);
   assert.deepEqual(json.data, {
-    items: [{ id: 1, content_type: 'reading_article', content_id: 100, created_at: '2026-09-01T00:00:00.000Z' }]
+    items: [{
+      id: 1, content_type: 'reading_article', content_id: 100, created_at: '2026-09-01T00:00:00.000Z',
+      title: null, submitted_by: null, submitter_name: null
+    }]
   });
 });
 

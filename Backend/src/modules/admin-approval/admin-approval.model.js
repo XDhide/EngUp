@@ -8,7 +8,7 @@ module.exports = (sequelize) => {
       primaryKey: true
     },
     content_type: {
-      type: DataTypes.ENUM('reading_article', 'test_question'),
+      type: DataTypes.ENUM('reading_article', 'test_question', 'vocabulary_word'),
       allowNull: false,
       comment: 'Loại nội dung chờ duyệt; quyết định bảng nào content_id trỏ tới'
     },
@@ -16,6 +16,14 @@ module.exports = (sequelize) => {
       type: DataTypes.BIGINT.UNSIGNED,
       allowNull: false,
       comment: 'FK đa hình: reading_articles.id hoặc test_questions.id tuỳ content_type'
+    },
+    submitted_by: {
+      type: DataTypes.BIGINT.UNSIGNED,
+      allowNull: true,
+    },
+    title: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
     },
     status: {
       type: DataTypes.ENUM('pending', 'approved', 'rejected'),
@@ -52,6 +60,11 @@ module.exports = (sequelize) => {
     AdminContentApprovalQueue.belongsTo(models.User, {
       foreignKey: 'reviewed_by',
       as: 'reviewer',
+      onDelete: 'SET NULL'
+    });
+    AdminContentApprovalQueue.belongsTo(models.User, {
+      foreignKey: 'submitted_by',
+      as: 'submitter',
       onDelete: 'SET NULL'
     });
   };

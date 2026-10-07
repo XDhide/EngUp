@@ -69,7 +69,7 @@ def test_cold_start_and_no_model(bundle):
 def test_api(engine, bundle):
     predictor.set_bundle(bundle)
     c = TestClient(app)
-    assert c.get("/health").json() == {"status": "ok"}
+    assert c.get("/health").json()["status"] == "ok"
     body = {"user_id": 1, "word_id": 2, "review_history": [
         {"result": "good", "response_time_ms": 1200, "reviewed_at": f"2026-01-0{d}T08:00:00Z"} for d in (1, 2, 4)]}
     j = c.post("/predict", json=body).json()
