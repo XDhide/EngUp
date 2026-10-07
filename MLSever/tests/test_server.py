@@ -110,3 +110,39 @@ def test_ml_schedule_is_capped(bundle):
     p = predictor.predict(h, h[-1].reviewed_at + timedelta(hours=1))
     assert p.next_review_at <= h[-1].reviewed_at + timedelta(days=60)
     predictor.set_bundle(None)
+
+
+def test_predict_batch_and_as_of(engine, bundle):
+    predictor.set_bundle(bundle)
+    c = TestClient(app)
+    hist_json = [{"result": "good", "response_time_ms": 1200, "reviewed_at": f"2026-01-0{d}T08:00:00Z"} for d in (1, 2, 4)]
+    items = [
+        {"review_history": hist_json, "as_of": "2026-01-04T09:00:00Z"},
+        {"review_history": hist_json, "as_of": "2026-03-04T09:00:00Z"},
+        {"review_history": hist_json[:1], "as_of": "2026-01-02T09:00:00Z"},
+    ]
+    j = c.post("/predict/batch", json={"items": items}).json()
+    preds = j["data"]["predictions"]
+    assert len(preds) == 3
+    assert preds[0]["recall_probability"] >= preds[1]["recall_probability"]
+    assert preds[0]["used_fallback_sm2"] is False and preds[2]["used_fallback_sm2"] is True
+    with engine.connect() as conn:
+        assert conn.execute(text("select count(*) from ml_prediction_logs")).scalar() == 0
+
+
+def test_predict_many_matches_single(bundle):
+    predictor.set_bundle(bundle)
+    now = T0 + timedelta(days=40)
+    cases = [
+        (hist(0, 1, 3), now),
+        (hist(0, 2, 6, 14, 30), now + timedelta(days=5)),
+        (hist(0, 1, 2, 3, result="again"), now),
+        (hist(0), now),
+        ([], now),
+    ]
+    many = predictor.predict_many(cases)
+    for (h, n), got in zip(cases, many):
+        single = predictor.predict_many([(h, n)])[0]
+        assert got == single
+    assert [p.used_fallback_sm2 for p in many] == [False, False, False, True, True]
+    predictor.set_bundle(None)

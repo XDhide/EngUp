@@ -1,6 +1,7 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
 import { View, Text, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, Typography, Rounded } from '../../constants/theme';
 
 const tabOptions = (label: string) => ({
@@ -15,11 +16,13 @@ const tabOptions = (label: string) => ({
 // Thanh tab theo DESIGN.md: Trang chủ · Từ vựng · Luyện tập · Thống kê · Cá nhân.
 // Sổ tay vẫn là một route của nhóm tab nhưng ẩn khỏi thanh (truy cập từ Từ vựng và Cá nhân).
 export default function TabLayout() {
+  const insets = useSafeAreaInsets();
+  const bottomInset = Math.max(insets.bottom, 12);
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarStyle: styles.tabBar,
+        tabBarStyle: [styles.tabBar, { height: 64 + bottomInset, paddingBottom: bottomInset }],
         tabBarShowLabel: false,
       }}
     >

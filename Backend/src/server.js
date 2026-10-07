@@ -13,6 +13,7 @@ const errorMiddleware = require('./common/middlewares/error.middleware');
 const { scheduleStreakJob } = require('./modules/streaks/streaks.job');
 const { startReminderJob } = require('./modules/notifications/jobs/reminderJob');
 const { ensureSchema } = require('./common/schema/ensureSchema');
+const { ensureAdmins } = require('./common/seed/ensureAdmins');
 
 const app = express();
 
@@ -109,6 +110,7 @@ const PORT = process.env.PORT || 5000;
   try {
     await testConnection();
     await ensureSchema();
+    await ensureAdmins();
     scheduleStreakJob();
     startReminderJob();
     app.listen(PORT, () => {

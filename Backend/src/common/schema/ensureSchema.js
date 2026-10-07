@@ -1,7 +1,7 @@
 const db = require('../models');
 const { PLACEMENT_TEST_QUESTIONS } = require('../../modules/auth/placementTest.data');
 
-const QUEUE_TYPES = ['reading_article', 'test_question', 'vocabulary_word'];
+const QUEUE_TYPES = ['reading_article', 'test_question', 'vocabulary_word', 'learning_path'];
 
 async function tableColumns(qi, table) {
   try {
@@ -24,7 +24,7 @@ async function ensureSchema({ log = console.log } = {}) {
   const qi = sequelize.getQueryInterface();
   const changes = [];
 
-  for (const name of ['UserNote', 'PlacementQuestion', 'SystemJobRun']) {
+  for (const name of ['UserNote', 'PlacementQuestion', 'SystemJobRun', 'LearningPath', 'LearningPathItem', 'LearningPathEnrollment']) {
     const model = db[name];
     const existed = await tableColumns(qi, model.getTableName());
     await model.sync();
@@ -48,10 +48,10 @@ async function ensureSchema({ log = console.log } = {}) {
   })) changes.push('test_questions.is_approved');
 
   const queueCols = await tableColumns(qi, 'admin_content_approval_queue');
-  if (queueCols && queueCols.content_type && !String(queueCols.content_type.type).includes('vocabulary_word')) {
+  if (queueCols && queueCols.content_type && !String(queueCols.content_type.type).includes('learning_path')) {
     const list = QUEUE_TYPES.map((t) => `'${t}'`).join(',');
     await sequelize.query(`ALTER TABLE admin_content_approval_queue MODIFY COLUMN content_type ENUM(${list}) NOT NULL`);
-    changes.push('admin_content_approval_queue.content_type (+vocabulary_word)');
+    changes.push('admin_content_approval_queue.content_type (+vocabulary_word, learning_path)');
   }
 
   const total = await db.PlacementQuestion.count();

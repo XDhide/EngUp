@@ -9,7 +9,7 @@ from .config import get_settings
 from .db import get_session
 from .models import MlPredictionLog, ReviewLog
 from .predictor import Prediction, ReviewEvent, predictor
-from .schemas import PredictRequest
+from .schemas import BatchPredictRequest, PredictRequest
 from .timeutil import iso_z, to_naive_utc, utcnow
 
 log = logging.getLogger("ml.api")
@@ -72,7 +72,8 @@ def predict(req: PredictRequest):
     else:
         history = _fetch_history(req.user_id, req.word_id)
 
-    pred = predictor.predict(history, utcnow())
+    now = to_naive_utc(req.as_of) if req.as_of else utcnow()
+    pred = predictor.predict(history, now)
     if not req.dry_run:
         _log_prediction(req.user_id, req.word_id, pred)
     data = {
@@ -84,6 +85,26 @@ def predict(req: PredictRequest):
     }
     # `data` theo chuẩn Backend + bản phẳng cho tryPredict() (đọc root.recall_probability)
     return {"success": True, "message": "OK", "data": data, **data}
+
+
+@router.post("/predict/batch")
+def predict_batch(req: BatchPredictRequest):
+    requests = [
+        (
+            [ReviewEvent(h.result, h.response_time_ms, to_naive_utc(h.reviewed_at)) for h in item.review_history],
+            to_naive_utc(item.as_of) if item.as_of else utcnow(),
+        )
+        for item in req.items
+    ]
+    out = [
+        {
+            "recall_probability": pred.recall_probability,
+            "next_review_at": iso_z(pred.next_review_at),
+            "used_fallback_sm2": pred.used_fallback_sm2,
+        }
+        for pred in predictor.predict_many(requests)
+    ]
+    return {"success": True, "message": "OK", "data": {"predictions": out, "model_version": predictor.model_version}}
 
 
 @router.get("/metrics/accuracy", dependencies=[Depends(require_internal_key)])

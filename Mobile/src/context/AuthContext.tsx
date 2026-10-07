@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Storage } from '../services/storage';
 import { authService, UserProfile } from '../services/authService';
 import { setUnauthorizedHandler } from '../services/apiClient';
+import { pushService } from '../services/pushService';
 
 interface AuthContextType {
   user: UserProfile | null;
@@ -47,6 +48,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => setUnauthorizedHandler(null);
   }, []);
 
+  useEffect(() => {
+    if (user?.id) pushService.register();
+  }, [user?.id]);
+
   const login = async (data: { email: string; password: string }) => {
     setIsLoading(true);
     try {
@@ -70,6 +75,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = async () => {
     setIsLoading(true);
     try {
+      await pushService.unregister();
       await authService.logout();
       setUser(null);
     } finally {

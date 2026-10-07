@@ -8,7 +8,7 @@ module.exports = (sequelize) => {
       primaryKey: true
     },
     content_type: {
-      type: DataTypes.ENUM('reading_article', 'test_question', 'vocabulary_word'),
+      type: DataTypes.ENUM('reading_article', 'test_question', 'vocabulary_word', 'learning_path'),
       allowNull: false,
       comment: 'Loại nội dung chờ duyệt; quyết định bảng nào content_id trỏ tới'
     },

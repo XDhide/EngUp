@@ -29,6 +29,23 @@ function ContentPreview({ content }) {
       </div>
     );
   }
+  if (content.kind === 'learning_path') {
+    return (
+      <>
+        <p className="cell-strong" style={{ marginBottom: 4 }}>{content.title}</p>
+        <p className="cell-sub" style={{ marginBottom: 8 }}>Cấp độ: {content.level || '—'} · {content.items?.length || 0} mục</p>
+        {content.description && <div className="preview" style={{ maxHeight: 120, marginBottom: 12 }}>{content.description}</div>}
+        {!content.items?.length && <InfoNote>Lộ trình chưa có nội dung nào.</InfoNote>}
+        <ol style={{ paddingLeft: 20, margin: 0 }}>
+          {content.items?.map((i) => (
+            <li key={`${i.item_type}-${i.item_id}`} style={{ marginBottom: 4 }}>
+              <Badge tone="off">{{ word: 'Từ vựng', reading: 'Bài đọc', listening: 'Bài nghe' }[i.item_type]}</Badge> {i.missing ? <i>Nội dung đã bị xóa hoặc chưa duyệt</i> : <>{i.title}{i.subtitle ? <span className="cell-sub"> — {i.subtitle}</span> : null}</>}
+            </li>
+          ))}
+        </ol>
+      </>
+    );
+  }
   if (content.kind === 'test_question') {
     return (
       <>

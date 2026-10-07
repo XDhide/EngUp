@@ -31,7 +31,8 @@ async function getPendingItems(requester, { type } = {}) {
 const TYPE_LABELS = {
   reading_article: 'bài đọc',
   test_question: 'câu hỏi đề thi',
-  vocabulary_word: 'từ vựng'
+  vocabulary_word: 'từ vựng',
+  learning_path: 'lộ trình học'
 };
 
 async function notifySubmitter(item, { approved, reason }, transaction) {

@@ -1,4 +1,5 @@
 const notificationsRepository = require('./notifications.Repository');
+const { notifyUser } = require('./notifications.sender');
 const AppError = require('../../common/utils/AppError');
 const { toSettingsDto, toNotificationDto } = require('./notifications.dtos');
 
@@ -37,7 +38,20 @@ async function markAsRead(userId, notificationId) {
   return null;
 }
 
+async function sendTest(userId) {
+  const { push } = await notifyUser({
+    user_id: userId,
+    type: 'system',
+    respectSettings: false,
+    title: 'Thông báo thử từ EngUp',
+    body: 'Nếu bạn thấy thông báo này, thiết bị của bạn đã nhận được thông báo đẩy.'
+  });
+  const settings = await notificationsRepository.findSettingsByUserId(userId);
+  return { push: push.status, push_error: push.error || null, has_push_token: !!(settings && settings.push_token) };
+}
+
 module.exports = {
+  sendTest,
   getSettings,
   updateSettings,
   getNotifications,

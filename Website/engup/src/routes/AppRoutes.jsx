@@ -10,6 +10,7 @@ import ApprovalPage from '../pages/admin/ApprovalPage';
 import TestsPage from '../pages/admin/TestsPage';
 import LogsPage from '../pages/admin/LogsPage';
 import PlacementPage from '../pages/admin/PlacementPage';
+import LearningPathsPage from '../pages/admin/LearningPathsPage';
 import SystemPage from '../pages/admin/SystemPage';
 import NotFoundPage from '../pages/not-found/NotFoundPage';
 
@@ -25,6 +26,7 @@ export default function AppRoutes() {
           <Route path="content" element={<ContentPage />} />
           <Route path="approval" element={<ApprovalPage />} />
           <Route path="tests" element={<TestsPage />} />
+          <Route path="paths" element={<LearningPathsPage />} />
           <Route path="placement" element={<PlacementPage />} />
           <Route path="system" element={<SystemPage />} />
           <Route path="logs" element={<LogsPage />} />
