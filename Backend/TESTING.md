@@ -1,0 +1,221 @@
+# Hướng dẫn Test API & Seed dữ liệu mẫu
+
+Đã thêm 2 phần vào project:
+
+```
+backend/
+├── src/
+│   └── common/
+│       └── seed/
+│           └── seed.js   <- tạo dữ liệu mẫu (users, vocab, reading, listening, writing)
+└── test/
+    ├── test_api.py       <- test toàn bộ API bằng Python (tích hợp, cần server + DB)
+    ├── helpers/
+    │   ├── approval_fixtures.js      <- tạo/kiểm tra/dọn dữ liệu thử cho test duyệt nội dung
+    │   ├── admin_tests_fixtures.js   <- tạo/dọn lượt làm bài thử cho test thống kê đề thi
+    │   ├── logs_fixtures.js          <- tạo/dọn error log + audit log thử cho test admin-logs
+    │   └── dashboard_fixtures.js     <- tạo/dọn thông báo, gói cước, lượt làm bài... thử cho test admin-dashboard
+    └── unit/             <- unit test (node:test), KHÔNG cần MySQL
+        ├── admin-approval.service.test.js
+        ├── admin-approval.http.test.js
+        ├── admin-tests.service.test.js
+        ├── admin-tests.http.test.js
+        ├── admin-logs.service.test.js
+        ├── admin-logs.http.test.js
+        ├── admin-dashboard.service.test.js
+        └── admin-dashboard.http.test.js
+```
+
+## 1. Cài đặt
+
+```bash
+# Cài dependency Node (nếu chưa cài)
+npm install
+
+# Cài thư viện Python cần thiết (chỉ cần "requests")
+pip install requests --break-system-packages
+```
+
+Đảm bảo file `.env` đã trỏ đúng MySQL (`DB_HOST`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`).
+
+## 2. Tạo cấu trúc bảng (nếu chưa có)
+
+```bash
+npm run db:sync
+```
+
+Nếu database đã có sẵn từ trước, chạy migration để thêm phần mới của các module
+`admin-approval`, `admin-logs` và `admin-dashboard` (an toàn khi chạy lại nhiều lần):
+
+```bash
+npm run migrate
+```
+
+Migration này (a) tạo bảng `admin_content_approval_queue` nếu chưa có và
+(b) thêm cột `test_questions.is_approved` (mặc định `true`, nên các câu hỏi hiện có
+vẫn hiển thị như cũ). Rollback từng bước bằng `npm run migrate:down`.
+
+## 3. Seed dữ liệu mẫu
+
+```bash
+node src/common/seed/seed.js
+# hoặc
+npm run db:seed
+```
+
+Script sẽ tạo (an toàn khi chạy lại nhiều lần — không tạo trùng):
+
+- 3 tài khoản:
+  - `admin@engup.test` / `Admin@123` (role: admin)
+  - `student1@engup.test` / `Student@123` (role: student)
+  - `student2@engup.test` / `Student@123` (role: student)
+- 2 chủ đề từ vựng (Travel, Business) + 6 từ vựng mẫu
+- 2 bài đọc (kèm câu hỏi trắc nghiệm)
+- 2 bài nghe (kèm transcript)
+- 2 đề bài viết (1 free, 1 IELTS)
+
+## 4. Chạy server
+
+```bash
+npm run start
+# hoặc
+npm run dev
+```
+
+## 5. Chạy test API
+
+```bash
+python test/test_api.py
+```
+
+Nếu server chạy ở cổng/host khác:
+
+```bash
+python test/test_api.py --base-url http://localhost:5000/api
+```
+
+## Lưu ý về các API phụ thuộc dịch vụ ngoài
+
+Hai endpoint sau gọi ra dịch vụ AI bên ngoài (Gemini) và sẽ trả về lỗi
+`502` nếu bạn **chưa** cấu hình API key/URL tương ứng trong `.env`. Script
+test sẽ tự động đánh dấu các test này là **SKIP** (không tính là lỗi code)
+khi gặp mã 502:
+
+| Endpoint | Biến môi trường cần cấu hình |
+|---|---|
+| `POST /api/reading/generate` | `AI_GENERATION_URL` |
+| `POST /api/writing/submissions` | `WRITING_LLM_API_KEY` (Gemini API key) |
+
+Nếu bạn cấu hình đầy đủ các biến trên, test script sẽ kiểm tra các API này
+như bình thường (mong đợi status `201`).
+
+## Unit test (không cần DB / server)
+
+```bash
+npm run test:unit
+```
+
+Dùng test runner có sẵn của Node (`node:test`, cần Node 18+), không thêm dependency.
+Hiện bao phủ module `admin-approval`, `admin-tests`, `admin-logs` và `admin-dashboard`: logic service (404 / 409 / transaction /
+audit log) và tầng HTTP (JWT, phân quyền admin, validation, định dạng response).
+
+## Test module duyệt nội dung (`/api/admin/content`)
+
+Phần `=== 9. ADMIN CONTENT APPROVAL ===` trong `test_api.py` kiểm tra đủ 3 endpoint:
+
+| Endpoint | Kiểm tra |
+|---|---|
+| `GET /api/admin/content/pending[?type=]` | 401 / 403, lọc theo `type`, `type` sai -> 400, shape `{id, content_type, content_id, created_at}` |
+| `PUT /api/admin/content/:id/approve` | 200 + `data=null`, `is_approved=true` ở bảng nội dung, 404, 409 khi xử lý lại |
+| `PUT /api/admin/content/:id/reject` | 200 + `data=null`, `reject_reason` bắt buộc (<= 500 ký tự), 404, 409 |
+
+Hiện chưa có API nào để đưa nội dung vào hàng chờ (ngoài `POST /reading/generate` cần AI thật),
+nên test tự tạo dữ liệu thử trực tiếp vào DB qua `test/helpers/approval_fixtures.js`
+(cần `node` trong PATH và `.env` trỏ đúng DB) rồi **tự dọn sạch** sau khi chạy.
+Nếu không tạo được dữ liệu thử, các kịch bản duyệt/từ chối được đánh dấu SKIP.
+
+## Test module quản trị đề thi (`/api/admin/tests`)
+
+Phần `=== 10. ADMIN TESTS ===` trong `test_api.py`:
+
+| Endpoint | Kiểm tra |
+|---|---|
+| `POST/PUT/DELETE /api/admin/tests/test-sets[/:id]` | 201 / 200, `data` = đề sau thao tác (DELETE trả đề vừa xoá), validation, 404, **409 khi xoá đề đã có lượt làm bài**, câu hỏi bị xoá theo đề |
+| `POST/PUT/DELETE /api/admin/tests/questions[/:id]` | như trên; `multiple_choice` bắt buộc có `options` (>= 2) + `correct_answer`, `fill_blank` bắt buộc có `correct_answer`; PUT cập nhật từng phần và kiểm tra ràng buộc trên bản ghi đã gộp |
+| `GET /api/admin/tests/attempts?test_set_id=` | `test_set_id` bắt buộc (400 / 404), `attempts[]` chỉ gồm `{user_id, score, band_score, status}` với điểm dạng số, `completion_rate` = % lượt đã nộp (0 nếu chưa có lượt nào) |
+
+Lượt làm bài của học viên được tạo trực tiếp vào DB qua `test/helpers/admin_tests_fixtures.js`
+(cần các tài khoản `student1/student2` do `npm run db:seed` tạo), và được dọn sạch sau khi chạy.
+
+## Test module log hệ thống (`/api/admin/logs`)
+
+Phần `=== 11. ADMIN LOGS ===` trong `test_api.py`:
+
+| Endpoint | Kiểm tra |
+|---|---|
+| `GET /api/admin/logs/errors[?service=&from=&to=]` | 401 / 403; `service` chỉ nhận `backend` \| `ml-service`; `from`/`to` nhận `YYYY-MM-DD` (`to` bao trọn ngày đó, UTC) hoặc ISO 8601, sai định dạng hoặc `from > to` -> 400; `data.logs[]` chỉ gồm `{service, level, message, created_at}` (không lộ `stack_trace`), mới nhất trước; kết hợp nhiều bộ lọc |
+| `GET /api/admin/logs/audit[?actor_id=&action=]` | 401 / 403; `actor_id` phải là số nguyên dương, `action` <= 100 ký tự và khớp chính xác; `data.logs[]` chỉ gồm `{actor_id, action, target_type, target_id, created_at}` (không lộ `detail`), mới nhất trước |
+
+Mỗi endpoint trả tối đa 500 dòng mới nhất. Chưa có API nào để ghi `error_logs`, nên test tạo dữ liệu thử
+trực tiếp vào DB qua `test/helpers/logs_fixtures.js` (log lỗi thử gắn vào tháng 1/2001 để không lẫn với log thật,
+cần các tài khoản do `npm run db:seed` tạo) và **tự dọn sạch** sau khi chạy. Nếu không tạo được dữ liệu thử,
+các kịch bản lọc được đánh dấu SKIP.
+
+Nếu database cũ chưa có bảng `error_logs`, chạy `npm run migrate` (migration `create-error-logs`, an toàn khi chạy lại).
+
+## Test module dashboard / thông báo / gói cước (`/api/admin/notifications`, `/dashboard`, `/subscriptions`)
+
+Các phần `=== 12. ADMIN NOTIFICATIONS ===`, `=== 13. ADMIN DASHBOARD ===`, `=== 14. ADMIN SUBSCRIPTIONS ===`
+trong `test_api.py` (cùng thuộc module `admin-dashboard`):
+
+| Endpoint | Kiểm tra |
+|---|---|
+| `POST/PUT/DELETE /api/admin/notifications/templates[/:id]` | 201 / 200, `data` = mẫu sau thao tác (DELETE trả mẫu vừa xoá), validation (`type` chỉ gồm chữ thường/số/`_`), **409 khi trùng `name`**, 404, PUT cập nhật từng phần |
+| `GET /api/admin/notifications/sent-history[?from=&to=]` | đọc read-only từ bảng `notifications`; `from`/`to` như `admin-logs` (`to` bao trọn ngày, UTC); mỗi dòng `{id, user_id, title, body, type, is_read, created_at}`, mới nhất trước |
+| `GET /api/admin/dashboard/overview` | đúng 4 field `{total_users, daily_active_users, completion_rate, recent_errors}`; số liệu **đối chiếu với SQL thuần**; thêm 1 user + 1 lượt đọc hôm nay -> `total_users` +1, `daily_active_users` +1; `recent_errors` chỉ mức `error`/`critical`, tối đa 10, mới nhất trước |
+| `POST/PUT/DELETE /api/admin/subscriptions/plans[/:id]` | 201 / 200, `price` trả về dạng số (tối đa 2 chữ số thập phân), `features` là mảng/object/null, **409 khi xoá gói đã có đăng ký** (tránh CASCADE xoá đăng ký của học viên) |
+| `GET /api/admin/subscriptions[?user_id=&status=]` | lọc theo `user_id` và `status` (`active` \| `expired` \| `cancelled`), có thể kết hợp; mỗi dòng `{id, user_id, plan_id, status, start_date, end_date, created_at}` |
+
+Định nghĩa các số liệu trên dashboard:
+
+- `total_users`: tổng số tài khoản trong bảng `users` (mọi vai trò).
+- `daily_active_users`: số người dùng khác nhau có hoạt động học trong ngày hôm nay (UTC) — ôn từ, nộp bài đọc hoặc bài nghe, cùng định nghĩa với streak job.
+- `completion_rate`: % lượt làm bài thi (`user_test_attempts`) đã nộp trên toàn hệ thống, làm tròn 2 chữ số; chưa có lượt nào -> 0.
+- `recent_errors`: 10 log lỗi mức `error`/`critical` mới nhất trong `error_logs`.
+
+Danh sách `sent-history` và `subscriptions` trả tối đa 500 dòng mới nhất. Chưa có API để đưa dữ liệu vào `notifications` / `subscriptions`,
+nên test tạo dữ liệu thử trực tiếp vào DB qua `test/helpers/dashboard_fixtures.js` (thông báo thử gắn vào tháng 1/2001)
+và **tự dọn sạch** sau khi chạy. Nếu không tạo được dữ liệu thử, các kịch bản dùng dữ liệu thử được đánh dấu SKIP.
+
+Nếu database cũ chưa có các bảng `notification_templates`, `subscription_plans`, `subscriptions`, chạy `npm run migrate`.
+
+## Giới hạn request khi chạy `test_api.py`
+
+`/api` giới hạn 100 request / 15 phút cho mỗi IP, nhưng một lần chạy toàn bộ `test_api.py`
+dùng khoảng **120 request**. Hãy khởi động server với giới hạn cao hơn (biến môi trường
+`RATE_LIMIT_MAX`, mặc định vẫn là 100 nên không ảnh hưởng khi chạy thật):
+
+```powershell
+# PowerShell (Windows)
+$env:RATE_LIMIT_MAX=1000; npm run start
+```
+
+```bash
+# bash / macOS / Linux
+RATE_LIMIT_MAX=1000 npm run start
+```
+
+Nếu quên, các test cuối sẽ FAIL với HTTP 429 và báo rõ nguyên nhân này.
+
+## Đọc kết quả test
+
+Script in ra từng dòng test dạng:
+
+```
+[PASS] GET /vocabulary/topics — HTTP 200
+[FAIL] POST /writing/submissions — HTTP 500 | body: {...}
+[SKIP] POST /reading/generate — Trả về 502 vì chưa cấu hình AI_GENERATION_URL...
+```
+
+Cuối cùng là bảng tổng kết số lượng PASS / FAIL / SKIP. Script thoát với mã
+`1` nếu có bất kỳ test nào FAIL (hữu ích khi dùng trong CI).

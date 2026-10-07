@@ -1,0 +1,11 @@
+fastapi>=0.115,<1
+uvicorn[standard]>=0.30
+sqlalchemy>=2.0,<2.1
+pymysql>=1.1
+cryptography>=42
+pydantic-settings>=2.4
+numpy>=1.26,<2.3
+pandas>=2.2,<3
+joblib>=1.4
+# GHIM đúng phiên bản Colab đã dùng để train recall_model.joblib (xem bundle["sklearn_version"])
+scikit-learn==1.6.1

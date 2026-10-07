@@ -1,3 +1,30 @@
+# ⚡ Chạy nhanh (1 lệnh)
+
+Yêu cầu: **Docker Desktop** (đang bật) và **Node.js 20+**. Đứng ở thư mục gốc (cùng cấp `Backend/`, `Mobile/`, `MLSever/`):
+
+```bash
+npm run app
+```
+Lệnh này tự: build & chạy MySQL + MLSever (FastAPI, nạp `MLSever/models/recall_model.joblib`) + Backend, nạp dữ liệu mẫu, rồi mở Expo cho Mobile (quét QR bằng Expo Go).
+
+| Lệnh | Việc |
+|---|---|
+| `npm run app` | chạy tất cả |
+| `npm run app -- --no-mobile` | chỉ chạy MySQL + ML + Backend |
+| `npm run stop` | tắt Docker |
+| `npm run reset` | tắt và XOÁ database (nạp lại schema + seed lần sau) |
+| `npm run app:reset` | **(để test)** xoá sạch bảng, nạp lại schema, tạo 2 admin: `admin@engup.test / Admin@123` và `admin2@engup.test / Admin@123` (hỏi xác nhận trước khi xoá). Sau khi reset tự thử đăng nhập qua Backend và báo nếu Backend dùng database khác |
+| `npm run app:resettest` | **(để test đầy đủ)** reset database + tạo 2 admin + nạp dữ liệu mẫu (student1/2, từ vựng, bài đọc, bài nghe, đề thi...). Thêm `-- --yes` để bỏ hỏi xác nhận, `-- --docker` / `-- --local` để chọn MySQL |
+| `npm run app:reset -- --yes --seed` | như trên nhưng bỏ hỏi xác nhận và nạp thêm dữ liệu mẫu (student1/2, từ vựng, đề thi...) |
+| `npm run logs` | xem log |
+
+Tài khoản mẫu: `student1@engup.test / Student@123`. Swagger ML: http://localhost:8000/docs
+
+**Reset database để test (`npm run app:reset`)** — chỉ xoá bảng (không DROP database) nên Backend/ML đang chạy không cần khởi động lại.
+Tuỳ chọn thêm sau `--`: `--docker` (MySQL Docker, cổng 3307) · `--local` (MySQL cài sẵn, cổng 3306) · `--yes` (bỏ xác nhận) · `--seed` (thêm dữ liệu mẫu) · `--email=... --password=... --name="..."` (đổi admin 1) · `--email2=... --password2=... --name2="..."` (đổi admin 2). Mặc định tự dò cổng 3306 rồi 3307.
+
+---
+
 # EngUp — English Learning App
 
 Ứng dụng học tiếng Anh gồm 2 phần: **Backend** (Node.js + Express + MySQL) và **Mobile** (Expo + React Native + TypeScript).

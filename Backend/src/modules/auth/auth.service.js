@@ -1,0 +1,192 @@
+const { hashPassword, comparePassword } = require('../../common/utils/password');
+const authRepository = require('./auth.Repository');
+const AppError = require('../../common/utils/AppError');
+const {
+  generateAccessToken,
+  generateRefreshToken,
+  verifyRefreshToken,
+  hashToken,
+  getExpiryDateFromJwt
+} = require('../../common/utils/token');
+
+const { PLACEMENT_TEST_QUESTIONS, LEVEL_THRESHOLDS } = require('./placementTest.data');
+const { PlacementQuestion } = require('../../common/models');
+const { toPublicUser, toProfileUser, toPlacementTestQuestionDto } = require('./auth.dtos');
+
+async function getProfile(userId) {
+  const user = await authRepository.findUserById(userId);
+  if (!user) {
+    throw new AppError('Người dùng không tồn tại', 404);
+  }
+
+  return toProfileUser(user);
+}
+
+async function updateProfile(userId, fieldsToUpdate) {
+  const user = await authRepository.updateUserById(userId, fieldsToUpdate);
+  if (!user) {
+    throw new AppError('Người dùng không tồn tại', 404);
+  }
+
+  return toProfileUser(user);
+}
+
+async function issueTokens(user) {
+  const payload = { id: user.id, role: user.role };
+
+  const access_token = generateAccessToken(payload);
+  const refresh_token = generateRefreshToken(payload);
+
+  await authRepository.createRefreshToken({
+    user_id: user.id,
+    token_hash: hashToken(refresh_token),
+    expires_at: getExpiryDateFromJwt(refresh_token)
+  });
+
+  return { access_token, refresh_token };
+}
+
+async function register({ email, password, full_name }) {
+  const existingUser = await authRepository.findUserByEmail(email);
+  if (existingUser) {
+    throw new AppError('Email đã tồn tại', 409);
+  }
+
+  const password_hash = await hashPassword(password);
+  const user = await authRepository.createUser({ email, password_hash, full_name });
+
+  const tokens = await issueTokens(user);
+
+  return {
+    user: toPublicUser(user),
+    ...tokens
+  };
+}
+
+async function login({ email, password }) {
+  const user = await authRepository.findUserByEmail(email);
+
+  if (!user) {
+    throw new AppError('Email hoặc mật khẩu không đúng', 401);
+  }
+
+  if (!user.is_active) {
+    throw new AppError('Tài khoản đã bị khoá', 403);
+  }
+
+  const isPasswordValid = await comparePassword(password, user.password_hash);
+  if (!isPasswordValid) {
+    throw new AppError('Email hoặc mật khẩu không đúng', 401);
+  }
+
+  const tokens = await issueTokens(user);
+
+  return {
+    user: toPublicUser(user),
+    ...tokens
+  };
+}
+
+async function refreshAccessToken({ refresh_token }) {
+  let payload;
+  try {
+    payload = verifyRefreshToken(refresh_token);
+  } catch (err) {
+    throw new AppError('Refresh token không hợp lệ hoặc đã hết hạn', 401);
+  }
+
+  const tokenRecord = await authRepository.findRefreshTokenByHash(hashToken(refresh_token));
+
+  if (!tokenRecord || tokenRecord.revoked_at || tokenRecord.expires_at < new Date()) {
+    throw new AppError('Refresh token đã bị thu hồi hoặc hết hạn', 401);
+  }
+
+  const user = await authRepository.findUserById(payload.id);
+  if (!user || !user.is_active) {
+    throw new AppError('Tài khoản không tồn tại hoặc đã bị khoá', 401);
+  }
+
+  const access_token = generateAccessToken({ id: user.id, role: user.role });
+
+  return { access_token };
+}
+
+async function logout({ refresh_token }) {
+  const tokenRecord = await authRepository.findRefreshTokenByHash(hashToken(refresh_token));
+
+  if (!tokenRecord || tokenRecord.revoked_at) {
+    throw new AppError('Refresh token không hợp lệ', 401);
+  }
+
+  await authRepository.revokeRefreshToken(tokenRecord);
+
+  return null;
+}
+
+async function loadActivePlacementQuestions() {
+  try {
+    const rows = await PlacementQuestion.findAll({
+      where: { is_active: true },
+      order: [['order_index', 'ASC'], ['id', 'ASC']]
+    });
+    if (rows.length > 0) {
+      return rows.map((r) => ({
+        id: Number(r.id),
+        level: r.level,
+        question_text: r.question_text,
+        options: r.options,
+        correct_option_id: r.correct_option_id
+      }));
+    }
+  } catch (err) {
+    console.error('Không đọc được placement_questions, dùng bộ câu hỏi mặc định:', err.message);
+  }
+  return PLACEMENT_TEST_QUESTIONS;
+}
+
+async function getPlacementTestQuestions() {
+  const questions = (await loadActivePlacementQuestions()).map(toPlacementTestQuestionDto);
+
+  return { questions };
+}
+
+function calculateSuggestedLevel(correctCount, totalCount) {
+  const percent = totalCount > 0 ? (correctCount / totalCount) * 100 : 0;
+  const matched = LEVEL_THRESHOLDS.find((t) => percent >= t.minPercent);
+  return matched ? matched.level : 'A1';
+}
+
+async function submitPlacementTest(userId, answers) {
+  const questions = await loadActivePlacementQuestions();
+  const answerByQuestionId = new Map(answers.map((a) => [Number(a.question_id), a.answer]));
+
+  let correctCount = 0;
+  questions.forEach((q) => {
+    if (answerByQuestionId.get(q.id) === q.correct_option_id) {
+      correctCount += 1;
+    }
+  });
+
+  const suggested_level = calculateSuggestedLevel(correctCount, questions.length);
+
+  await authRepository.createPlacementTestResult({
+    user_id: userId,
+    answers,
+    suggested_level
+  });
+
+  await authRepository.updateUserById(userId, { level_current: suggested_level });
+
+  return { suggested_level };
+}
+
+module.exports = {
+  register,
+  login,
+  refreshAccessToken,
+  logout,
+  getProfile,
+  updateProfile,
+  getPlacementTestQuestions,
+  submitPlacementTest
+};

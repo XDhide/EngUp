@@ -35,12 +35,32 @@ jobs:
 
       - name: Kiểm tra lỗi biên dịch (syntax check toàn bộ file .js)
         run: |
-          find src -name "*.js" -print0 | xargs -0 -n1 node --check
+          find src -name "*.js" -print0 | xargs -0 -n1 node --check || exit 1
+
+      - name: Kiểm tra load toàn bộ 28 Sequelize Models và Associations
+        env:
+          DB_HOST: localhost
+          DB_USER: root
+          DB_PASSWORD: ''
+          DB_NAME: engup_ci_test
+          DB_PORT: 3306
+        run: |
+          node -e "
+            const db = require('./src/common/models');
+            const modelCount = Object.keys(db).filter(k => !['sequelize','Sequelize','syncDatabase'].includes(k)).length;
+            console.log('Models loaded:', modelCount);
+            if (modelCount < 28) { console.error('Thiếu models!'); process.exit(1); }
+            console.log('Tat ca models va associations load thanh cong.');
+            process.exit(0);
+          "
 
       - name: Kiểm tra ESLint (nếu đã cấu hình)
         run: |
           if [ -f .eslintrc.json ] || [ -f .eslintrc.js ] || [ -f eslint.config.js ]; then
             npx eslint src --max-warnings=0
           else
-            echo "Chưa cấu hình ESLint - bỏ qua bước này. Khuyến nghị thêm ESLint để bắt lỗi logic tốt hơn."
+            echo "Chua cau hinh ESLint - bo qua buoc nay."
           fi
+
+      - name: Kiểm tra bảo mật dependencies (npm audit)
+        run: npm audit --audit-level=high

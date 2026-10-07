@@ -33,6 +33,12 @@ jobs:
       - name: Cài dependencies
         run: npm ci
 
+      - name: Tạo expo-env.d.ts nếu chưa tồn tại (cần cho tsc trong CI)
+        run: |
+          if [ ! -f expo-env.d.ts ]; then
+            echo '/// <reference types="expo/types/global" />' > expo-env.d.ts
+          fi
+
       - name: Kiểm tra lỗi biên dịch TypeScript (type-check, không build ra file)
         run: npx tsc --noEmit
 
