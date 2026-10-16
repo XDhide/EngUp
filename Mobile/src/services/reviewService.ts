@@ -18,6 +18,20 @@ export type ReviewResultType = 'again' | 'hard' | 'good' | 'easy';
 export interface SubmitReviewResponse {
   next_review_at: string;
   interval_days: number;
+  recall_probability?: number | null;
+  half_life_hours?: number | null;
+}
+
+export interface StudyTimeEstimate {
+  total_cards: number;
+  estimated_seconds: number;
+  avg_seconds_per_card: number;
+  breakdown?: {
+    likely_recalled: number;
+    likely_forgotten: number;
+  };
+  user_avg_times?: Record<string, number>;
+  total_reviews?: number;
 }
 
 interface RawReviewCard {

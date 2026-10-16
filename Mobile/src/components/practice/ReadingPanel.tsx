@@ -61,6 +61,13 @@ export const ReadingPanel: React.FC<{ refreshKey: number; onLoaded: () => void }
 
   return (
     <>
+      <TouchableOpacity
+        style={styles.historyBtn}
+        onPress={() => router.push({ pathname: '/skill-history', params: { type: 'reading' } })}
+      >
+        <Text style={styles.historyBtnText}>Xem điểm đã lưu →</Text>
+      </TouchableOpacity>
+
       <View style={styles.searchBar}>
         <TextInput
           style={styles.searchInput}
@@ -125,6 +132,8 @@ export const ReadingPanel: React.FC<{ refreshKey: number; onLoaded: () => void }
 };
 
 const styles = StyleSheet.create({
+  historyBtn: { alignSelf: 'flex-start', paddingVertical: 8, paddingHorizontal: 14, borderRadius: Rounded.md, backgroundColor: Colors.surfaceContainerLowest, borderWidth: 1, borderColor: 'rgba(217, 227, 246, 0.9)' },
+  historyBtnText: { ...Typography.labelSm, color: Colors.primary, fontWeight: '700' },
   searchBar: {
     height: 48,
     backgroundColor: Colors.surfaceContainerLowest,

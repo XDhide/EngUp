@@ -8,6 +8,8 @@ const {
   subscriptionsRouter: adminSubscriptionsRouter
 } = require('../modules/admin-dashboard/admin-dashboard.routes');
 
+const { userRouter: resultsRouter, adminRouter: adminResultsRouter } = require('../modules/results/results.routes');
+
 router.use('/auth', require('../modules/auth/auth.routes'));
 router.use('/admin/auth', require('../modules/admin-auth/admin-auth.routes'));
 router.use('/admin/content', require('../modules/admin-approval/admin-approval.routes'));
@@ -20,6 +22,9 @@ router.use('/admin/system', require('../modules/admin-system/admin-system.routes
 router.use('/admin/notifications', adminNotificationsRouter);
 router.use('/admin/dashboard', adminDashboardRouter);
 router.use('/admin/subscriptions', adminSubscriptionsRouter);
+router.use('/results', resultsRouter);
+// /admin/results/* và /admin/writing/prompts: route tự gắn quyền admin, phải đứng TRƯỚC router '/admin' cuối file.
+router.use('/admin', adminResultsRouter);
 router.use('/notebook', require('../modules/notebook/notebook.routes'));
 router.use('/reading', require('../modules/reading/reading.routes'));
 router.use('/contributions', require('../modules/contributions/contributions.routes'));

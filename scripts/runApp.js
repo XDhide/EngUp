@@ -182,16 +182,13 @@ function launch({ title, dir, cmd }) {
   ok(`Đã mở terminal: ${title}`);
 }
 
-// ─── Chạy ─────────────────────────────────────────────────────────────────────
 console.log(`\n\x1b[36m[EngUp]\x1b[0m Hệ điều hành: ${process.platform} | Thư mục gốc: ${ROOT_DIR}\n`);
 tasks.forEach(launch);
 
 console.log(`
-\x1b[32m═══════════════════════════════════════════\x1b[0m
 \x1b[32m  EngUp đã mở 4 terminal:\x1b[0m
-    📦 Backend  → http://localhost:5000/api
-    📱 Mobile   → Expo Go (quét QR)
-    🤖 MLSever  → http://localhost:8000/docs
-    🌐 Website  → http://localhost:5173  (admin@engup.test / Admin@123)
-\x1b[32m═══════════════════════════════════════════\x1b[0m
+    Backend  → http://localhost:5000/api
+    Mobile   → Expo Go (quét QR)
+    MLSever  → http://localhost:8000/docs
+    Website  → http://localhost:5173  (admin@engup.test / Admin@123)
 `);

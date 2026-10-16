@@ -11,7 +11,7 @@ export default function RecentErrorsTable({ errors }) {
     { key: 'level', header: 'Mức độ', render: (r) => <Badge tone={levelTone(r.level)}>{LOG_LEVEL_LABELS[r.level] || r.level}</Badge> },
   ];
   return (
-    <Panel title="Lỗi hệ thống gần đây" subtitle="10 sự cố mới nhất được ghi nhận" bodyClass=""
+    <Panel title="Lỗi hệ thống gần đây" bodyClass=""
       action={<Link to="/logs">Xem toàn bộ nhật ký</Link>}>
       <DataTable columns={columns} rows={errors} rowKey={(r, i) => `${r.created_at}-${i}`} emptyText="Chưa có lỗi nào được ghi nhận." />
     </Panel>

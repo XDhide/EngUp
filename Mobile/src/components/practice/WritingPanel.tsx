@@ -58,7 +58,7 @@ export const WritingPanel: React.FC<{ refreshKey: number; onLoaded: () => void }
           <FilterChip key={t.key} label={t.label} isActive={typeFilter === t.key} onPress={() => setTypeFilter(t.key)} />
         ))}
       </ScrollView>
-
+        
       {error && <ErrorBanner message={error} />}
 
       {loading ? (

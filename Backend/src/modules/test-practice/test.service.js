@@ -11,6 +11,47 @@ const {
 const GRADABLE_QUESTION_TYPES = ['multiple_choice', 'fill_blank'];
 const AI_GRADED_QUESTION_TYPES = ['essay', 'speaking_prompt'];
 
+// ---- So khớp đáp án linh hoạt ----
+// Trước đây dùng so sánh chuỗi tuyệt đối nên "a" / "A" / "A. Big Ben" / " commute " đều bị tính SAI => điểm 0.
+function normalizeAnswer(value) {
+  return String(value === null || value === undefined ? '' : value)
+    .trim()
+    .replace(/\s+/g, ' ')
+    .toLowerCase();
+}
+
+// "A. Big Ben" -> { letter: 'a', text: 'big ben' }; "Big Ben" -> { letter: null, text: 'big ben' }
+function splitOption(raw) {
+  const m = String(raw).match(/^\s*([A-Za-z])\s*[.):]\s*(.*)$/s);
+  return m ? { letter: m[1].toLowerCase(), text: normalizeAnswer(m[2]) } : { letter: null, text: normalizeAnswer(raw) };
+}
+
+// Trả về chữ cái của đáp án (nếu giá trị là chữ cái hoặc là nội dung/ nguyên dòng của 1 lựa chọn).
+function answerToLetter(question, value) {
+  const norm = normalizeAnswer(value);
+  if (!norm) return null;
+  if (/^[a-z]$/.test(norm)) return norm;
+  const options = Array.isArray(question.options) ? question.options : [];
+  for (let i = 0; i < options.length; i += 1) {
+    const opt = splitOption(options[i]);
+    const letter = opt.letter || String.fromCharCode(97 + i);
+    if (norm === normalizeAnswer(options[i]) || norm === opt.text) return letter;
+  }
+  const lead = norm.match(/^([a-z])\s*[.):]/);
+  return lead ? lead[1] : null;
+}
+
+function isAnswerCorrect(question, submitted) {
+  if (submitted === undefined || submitted === null) return false;
+  if (normalizeAnswer(submitted) === normalizeAnswer(question.correct_answer)) return true;
+  if (question.question_type === 'multiple_choice') {
+    const a = answerToLetter(question, submitted);
+    const b = answerToLetter(question, question.correct_answer);
+    return a !== null && a === b;
+  }
+  return false;
+}
+
 async function getTestSets({ exam_type, section }) {
   const testSets = await testRepository.findTestSets({ exam_type, section });
   return { test_sets: testSets.map(toTestSetListItemDto) };
@@ -67,7 +108,7 @@ async function submitAttempt(userId, { attempt_id, answers }) {
 
   let correctCount = 0;
   gradableQuestions.forEach((q) => {
-    if (answerMap.get(q.id) === q.correct_answer) correctCount += 1;
+    if (isAnswerCorrect(q, answerMap.get(q.id))) correctCount += 1;
   });
 
   const totalCount = gradableQuestions.length;
@@ -83,7 +124,7 @@ async function submitAttempt(userId, { attempt_id, answers }) {
   });
   touchActivity(userId);
 
-  return { score, band_score: bandScore };
+  return { score, band_score: bandScore, correct_count: correctCount, total_count: totalCount };
 }
 
 function buildExamGradingPrompt(examType, section) {
@@ -172,7 +213,7 @@ async function getAttemptResult(userId, attemptId) {
       question_id: q.id,
       your_answer: answerMap.get(q.id) ?? null,
       correct_answer: q.correct_answer,
-      is_correct: answerMap.get(q.id) === q.correct_answer
+      is_correct: isAnswerCorrect(q, answerMap.get(q.id))
     }));
   }
 

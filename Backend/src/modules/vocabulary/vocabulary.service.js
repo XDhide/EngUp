@@ -76,7 +76,7 @@ async function createWord(requester, data) {
   return toWordDto(word);
 }
 
-const BULK_MAX = 300;
+const BULK_MAX = Number(process.env.BULK_MAX) || 2000;
 const AI_BATCH = 25;
 const VALID_LEVELS = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
 
@@ -276,9 +276,54 @@ async function tryPredict(card) {
       signal: controller.signal
     });
     if (!res.ok) return null;
-    const data = await res.json();
-    if (typeof data.recall_probability !== 'number') return null;
-    return data;
+    const response = await res.json();
+    const data = response.data || response;
+    if (typeof data.next_review_at !== 'string') return null;
+    const nextReviewAt = new Date(data.next_review_at);
+    if (
+      typeof data.recall_probability !== 'number' ||
+      !Number.isFinite(data.recall_probability) ||
+      data.recall_probability < 0 ||
+      data.recall_probability > 1 ||
+      Number.isNaN(nextReviewAt.getTime())
+    ) return null;
+    return { ...data, next_review_at: nextReviewAt };
+  } catch (err) {
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function getMlNextReviewAt(prediction) {
+  if (!prediction || prediction.used_fallback_sm2 !== false) return null;
+  return prediction.next_review_at instanceof Date ? prediction.next_review_at : null;
+}
+
+async function estimateStudyTime(userId, cards) {
+  if (!ML_SERVICE_URL || cards.length === 0) {
+    return { estimated_seconds: 0, avg_seconds_per_card: 0, total_cards: cards.length };
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), ML_SERVICE_TIMEOUT_MS);
+
+  try {
+    const res = await fetch(`${ML_SERVICE_URL}/predict/study-time`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        user_id: userId,
+        cards: cards.map((c) => ({
+          word_id: c.word_id,
+          recall_probability: c.recall_probability ?? null
+        }))
+      }),
+      signal: controller.signal
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    return json.data || null;
   } catch (err) {
     return null;
   } finally {
@@ -318,6 +363,18 @@ async function submitReview(userId, { card_id, result, response_time_ms }) {
     result,
     response_time_ms
   });
+
+  const prediction = await tryPredict(card);
+  const mlNextReviewAt = getMlNextReviewAt(prediction);
+  if (prediction) {
+    await vocabularyRepository.updateCardAfterReview(updatedCard, {
+      recall_probability: prediction.recall_probability,
+      ...(mlNextReviewAt ? { next_review_at: mlNextReviewAt } : {})
+    });
+  } else {
+    console.warn(`[Vocabulary] Không lấy được dự đoán ML cho card ${card.id}; giữ lịch SM-2.`);
+  }
+
   touchActivity(userId);
 
   return {
@@ -341,5 +398,6 @@ module.exports = {
   getTodayReviewCards,
   submitReview,
 
-  computeSm2Update
+  computeSm2Update,
+  getMlNextReviewAt
 };

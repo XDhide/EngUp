@@ -28,3 +28,14 @@ class BatchItem(BaseModel):
 
 class BatchPredictRequest(BaseModel):
     items: List[BatchItem] = Field(max_length=1000)
+
+
+class StudyTimeCardItem(BaseModel):
+    word_id: int = Field(ge=1)
+    recall_probability: Optional[float] = Field(default=None, ge=0, le=1)
+
+
+class StudyTimeRequest(BaseModel):
+    user_id: int = Field(ge=1)
+    cards: Optional[List[StudyTimeCardItem]] = None
+    card_count: Optional[int] = Field(default=None, ge=0)

@@ -26,6 +26,9 @@ const shortDate = (iso: string) => {
   return `${d}/${m}`;
 };
 
+// Làm tròn tối đa 2 chữ số thập phân (12.6 -> 12.6, 12.678 -> 12.68), tránh lỗi cộng số thực kiểu 12.600000000000001.
+const round2 = (n: number) => Math.round(n * 100) / 100;
+
 // Quá nhiều ngày thì gộp theo tuần để biểu đồ vẫn đọc được.
 function toBars(timeline: ProgressTimelineItem[], metric: Metric): BarDatum[] {
   const pick = (t: ProgressTimelineItem) => (metric === 'minutes' ? t.minutes_studied : t.words_reviewed);
@@ -33,7 +36,7 @@ function toBars(timeline: ProgressTimelineItem[], metric: Metric): BarDatum[] {
   const bars: BarDatum[] = [];
   for (let i = 0; i < timeline.length; i += 7) {
     const chunk = timeline.slice(i, i + 7);
-    bars.push({ label: shortDate(chunk[0].date), value: chunk.reduce((sum, t) => sum + pick(t), 0) });
+    bars.push({ label: shortDate(chunk[0].date), value: round2(chunk.reduce((sum, t) => sum + pick(t), 0)) });
   }
   return bars;
 }
@@ -59,7 +62,7 @@ export default function StatisticsScreen() {
     if (tl.status === 'fulfilled') setTimeline(tl.value.timeline);
     if (today.status === 'fulfilled') {
       const last = today.value.timeline[today.value.timeline.length - 1];
-      setTodayMinutes(last ? last.minutes_studied : 0);
+      setTodayMinutes(last ? round2(last.minutes_studied) : 0);
     }
     const failed = [ov, tl, today].find((r) => r.status === 'rejected');
     setError(failed && failed.status === 'rejected' ? errorMessage(failed.reason, 'Không tải được thống kê.') : null);
@@ -75,8 +78,8 @@ export default function StatisticsScreen() {
 
   const totals = useMemo(
     () => ({
-      minutes: timeline.reduce((s, t) => s + t.minutes_studied, 0),
-      words: timeline.reduce((s, t) => s + t.words_reviewed, 0),
+      minutes: round2(timeline.reduce((s, t) => s + t.minutes_studied, 0)),
+      words: round2(timeline.reduce((s, t) => s + t.words_reviewed, 0)),
       activeDays: timeline.filter((t) => t.minutes_studied > 0 || t.words_reviewed > 0).length,
     }),
     [timeline]
