@@ -9,3 +9,4 @@ export { logsService } from './logsService';
 export { placementService } from './placementService';
 export { systemService } from './systemService';
 export { learningPathService } from './learningPathService';
+export { writingService, resultsService } from './resultsService';

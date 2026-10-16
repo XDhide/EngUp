@@ -40,6 +40,10 @@ export const API_LISTENING_LESSONS            = '/listening/lessons';
 export const API_LISTENING_LESSON_DETAIL = (id: number) => `/listening/lessons/${id}`;
 export const API_LISTENING_DICTATION = (id: number) => `/listening/lessons/${id}/dictation`;
 
+// ─── LỊCH SỬ / ĐIỂM BÀI ĐỌC & BÀI NGHE ───────────────────────────────────────
+export const API_RESULTS_READING              = '/results/reading';
+export const API_RESULTS_LISTENING            = '/results/listening';
+
 // ─── WRITING ─────────────────────────────────────────────────────────────────
 export const API_WRITING_PROMPTS              = '/writing/prompts';
 export const API_WRITING_SUBMISSIONS          = '/writing/submissions';

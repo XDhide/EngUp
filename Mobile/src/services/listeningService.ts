@@ -3,6 +3,7 @@ import {
   API_LISTENING_LESSONS,
   API_LISTENING_LESSON_DETAIL,
   API_LISTENING_DICTATION,
+  API_RESULTS_LISTENING,
 } from './api';
 
 export interface ListeningLessonSummary {
@@ -26,6 +27,16 @@ export interface DictationResult {
   wrong_words: string[];
 }
 
+export interface ListeningHistoryItem {
+  id: number;
+  lesson_id: number;
+  title: string | null;
+  difficulty: string | null;
+  accuracy_percent: number;
+  wrong_count: number;
+  submitted_at: string;
+}
+
 export const listeningService = {
   async getLessons(): Promise<{ lessons: ListeningLessonSummary[] }> {
     const r = await apiRequest<{ lessons: ListeningLessonSummary[] }>(API_LISTENING_LESSONS);
@@ -42,6 +53,12 @@ export const listeningService = {
       body: JSON.stringify({ user_text: userText }),
     });
     return { accuracy_percent: Number(r.accuracy_percent) || 0, wrong_words: r.wrong_words ?? [] };
+  },
+
+  /** Lịch sử các lần nghe chép của chính người dùng (mới nhất trước). */
+  async getHistory(): Promise<ListeningHistoryItem[]> {
+    const r = await apiRequest<{ attempts: ListeningHistoryItem[] }>(API_RESULTS_LISTENING);
+    return (r.attempts ?? []).map((a) => ({ ...a, accuracy_percent: Number(a.accuracy_percent) || 0 }));
   },
 };
 

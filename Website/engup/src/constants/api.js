@@ -90,3 +90,11 @@ export const API_ADMIN_NOTIFICATION_HISTORY = '/admin/notifications/sent-history
 export const API_ADMIN_SUBSCRIPTIONS = '/admin/subscriptions';
 export const API_ADMIN_SUBSCRIPTION_PLANS = '/admin/subscriptions/plans';
 export const API_ADMIN_SUBSCRIPTION_PLAN = (id) => `/admin/subscriptions/plans/${id}`;
+
+// ─── ADMIN: ĐỀ BÀI VIẾT & KẾT QUẢ HỌC VIÊN ───────────────────────────────────
+export const API_ADMIN_WRITING_PROMPTS = '/admin/writing/prompts';
+export const API_ADMIN_WRITING_PROMPT = (id) => `/admin/writing/prompts/${id}`;
+export const API_ADMIN_RESULTS_TESTS = '/admin/results/tests'; // ?test_set_id=
+export const API_ADMIN_RESULTS_READING = '/admin/results/reading'; // ?article_id=
+export const API_ADMIN_RESULTS_LISTENING = '/admin/results/listening'; // ?lesson_id=
+export const API_ADMIN_RESULTS_WRITING = '/admin/results/writing'; // ?prompt_id=

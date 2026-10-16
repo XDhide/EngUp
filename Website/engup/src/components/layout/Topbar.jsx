@@ -1,12 +1,9 @@
-import { Badge, Button } from '../ui';
+import { Badge } from '../ui';
 
-export default function Topbar({ onToggleMenu }) {
+export default function Topbar() {
   return (
     <header className="topbar">
-      <div className="actions">
-        <Button className="topbar__menu" onClick={onToggleMenu}>Menu</Button>
-        <span className="topbar__title">Hệ thống quản trị</span>
-      </div>
+      <span className="topbar__title">Hệ thống quản trị</span>
       <Badge tone="ok">Chế độ hoạt động</Badge>
     </header>
   );

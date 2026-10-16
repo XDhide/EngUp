@@ -10,6 +10,9 @@ function errorMiddleware(err, req, res, next) {
   } else if (err.name === 'SequelizeValidationError') {
     statusCode = 400;
     message = err.errors?.map((e) => e.message).join('; ') || 'Dữ liệu không hợp lệ';
+  } else if (err.type === 'entity.too.large' || err.status === 413 || err.statusCode === 413) {
+    statusCode = 413;
+    message = 'Dữ liệu tải lên quá lớn (vượt quá dung lượng cho phép của hệ thống).';
   }
 
   res.status(statusCode).json({

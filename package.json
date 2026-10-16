@@ -8,6 +8,7 @@
     "app:docker": "node scripts/start.js",
     "app:reset": "node scripts/resetApp.js",
     "app:resettest": "node scripts/resetApp.js --seed",
+    "app:reset:real": "node scripts/resetApp.js --real",
     "stop": "docker compose down",
     "reset": "docker compose down -v",
     "logs": "docker compose logs -f"

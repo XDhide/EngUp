@@ -10,6 +10,10 @@
  *        - Admin 2: admin2@engup.test / Admin@123
  *
  * npm run app:resettest  = reset + tạo 2 admin + nạp dữ liệu mẫu (tương đương app:reset -- --seed)
+ * npm run app:reset:real = reset + tạo 2 admin + nạp THẬT NHIỀU dữ liệu vào MỌI bảng (tương đương app:reset -- --real)
+ *                          (2000 học viên, hàng triệu dòng lịch sử học tập; xem Backend/src/common/seed/seedReal.js)
+ *     Tuỳ chọn riêng cho --real:  --students=N (mặc định 2000)  --days=N (mặc định 180)
+ *                                 --density=X (mặc định 1)  --rng=N (seed ngẫu nhiên)
  *
  * Sau khi reset, nếu Backend đang chạy, script tự gọi thử đăng nhập admin để chắc chắn Backend
  * đọc đúng database vừa reset (nếu không sẽ báo rõ nguyên nhân).
@@ -62,6 +66,7 @@ const getOpt = (name) => {
 const OPT = {
   yes: hasFlag('yes') || hasFlag('y') || argv.includes('-y'),
   seed: hasFlag('seed'),
+  real: hasFlag('real'),
   docker: hasFlag('docker'),
   local: hasFlag('local'),
   allowRemote: hasFlag('allow-remote'),
@@ -81,8 +86,17 @@ const ADMINS = [
   },
 ];
 
+// Tham số chuyển tiếp cho seedReal.js (chỉ dùng với --real)
+const REAL_ARGS = ['students', 'days', 'density', 'rng']
+  .map((k) => [k, getOpt(k)])
+  .filter(([, v]) => v !== undefined)
+  .map(([k, v]) => `--${k}=${v}`);
+
 // ─── Kiểm tra đầu vào ────────────────────────────────────────────────────────
 if (OPT.docker && OPT.local) fail('Không dùng đồng thời --docker và --local.');
+for (const a of REAL_ARGS) {
+  if (!/^--(students|days|density|rng)=\d+(\.\d+)?$/.test(a) || Number(a.split('=')[1]) <= 0) fail(`Tham số không hợp lệ: ${a} (cần số dương)`);
+}
 if (process.env.NODE_ENV === 'production') fail('NODE_ENV=production — từ chối xoá database.');
 if (!fs.existsSync(BACKEND_DIR)) fail(`Không tìm thấy thư mục Backend: ${BACKEND_DIR}`);
 if (!fs.existsSync(SCHEMA_FILE)) fail(`Không tìm thấy file schema: ${SCHEMA_FILE}`);
@@ -255,7 +269,7 @@ async function verifyBackendLogin(target, port) {
     console.log(`
   Database đích : \x1b[33m${target}\x1b[0m
   Hiện đang có  : ${objects.length} bảng, ${users} tài khoản người dùng
-  Sẽ làm        : XOÁ TOÀN BỘ dữ liệu → nạp lại schema → tạo 2 admin (${ADMINS.map((a) => a.email).join(', ')})${OPT.seed ? ' + dữ liệu mẫu' : ''}
+  Sẽ làm        : XOÁ TOÀN BỘ dữ liệu → nạp lại schema → tạo 2 admin (${ADMINS.map((a) => a.email).join(', ')})${OPT.real ? ' + DỮ LIỆU THẬT (rất nhiều dòng ở mọi bảng, mất khoảng 1-3 phút)' : (OPT.seed ? ' + dữ liệu mẫu' : '')}
 `);
 
     if (!OPT.yes) {
@@ -326,8 +340,19 @@ async function verifyBackendLogin(target, port) {
     }
     await conn.end();
 
-    // 4) (Tuỳ chọn) dữ liệu mẫu
-    if (OPT.seed) {
+    // 4) (Tuỳ chọn) dữ liệu THẬT nhiều: đổ dữ liệu vào mọi bảng
+    if (OPT.real) {
+      if (OPT.seed) warn('Đã có --real nên bỏ qua --seed (dữ liệu thật đã bao gồm tài khoản student1/student2).');
+      say('Nạp dữ liệu thật (học viên, từ vựng, bài đọc/nghe, đề thi, lịch sử ôn tập, log...). Vui lòng chờ...');
+      const realRes = spawnSync('node', ['src/common/seed/seedReal.js', ...REAL_ARGS], {
+        cwd: BACKEND_DIR,
+        stdio: 'inherit',
+        shell: isWin,
+        env: dbEnv,
+      });
+      if (realRes.status !== 0) fail('Nạp dữ liệu thật thất bại (xem log phía trên). 2 admin vẫn đã được tạo.');
+      ok('Đã nạp dữ liệu thật.');
+    } else if (OPT.seed) {
       say('Nạp dữ liệu mẫu (student1/2, từ vựng, bài đọc, bài nghe, đề thi...)...');
       const seedRes = spawnSync('node', ['src/common/seed/seed.js'], {
         cwd: BACKEND_DIR,
@@ -347,7 +372,7 @@ async function verifyBackendLogin(target, port) {
 \x1b[32m═══════════════════════════════════════════════\x1b[0m
   2 tài khoản ADMIN (đăng nhập Website http://localhost:5173):
 ${ADMINS.map((a, i) => `    Admin ${i + 1}: \x1b[33m${a.email}\x1b[0m  /  \x1b[33m${a.password}\x1b[0m`).join('\n')}
-${OPT.seed ? '  (Đã có thêm dữ liệu mẫu: student1/2@engup.test / Student@123, từ vựng, đề thi...)\n' : '  Database chỉ có 2 admin (chưa có học viên / học liệu). Thêm dữ liệu mẫu: npm run app:reset -- --seed\n'}
+${OPT.real ? '  (Đã nạp dữ liệu thật: học viên student1..studentN@engup.test / Student@123, từ vựng, bài đọc, bài nghe, đề thi, lịch sử học, log...)\n' : (OPT.seed ? '  (Đã có thêm dữ liệu mẫu: student1/2@engup.test / Student@123, từ vựng, đề thi...)\n' : '  Database chỉ có 2 admin (chưa có học viên / học liệu). Thêm dữ liệu mẫu: npm run app:reset -- --seed (hoặc nhiều dữ liệu: npm run app:reset:real)\n')}
   Lưu ý: nếu Website/Mobile còn phiên đăng nhập cũ, hãy Đăng xuất (hoặc xoá dữ liệu trình duyệt / app)
          rồi đăng nhập lại.
 `);

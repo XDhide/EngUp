@@ -1,7 +1,7 @@
 import React, { useCallback, useState } from 'react';
-import { View, Text, ScrollView, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, ActivityIndicator, TouchableOpacity, StyleSheet } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { Colors, Typography, Spacing } from '../../constants/theme';
+import { Colors, Typography, Spacing, Rounded } from '../../constants/theme';
 import { FilterChip } from '../common/FilterChip';
 import { ErrorBanner } from '../common/ErrorBanner';
 import { PracticeItemCard, PanelMessage } from './PracticeItemCard';
@@ -40,6 +40,13 @@ export const ListeningPanel: React.FC<{ refreshKey: number; onLoaded: () => void
 
   return (
     <>
+      <TouchableOpacity
+        style={styles.historyBtn}
+        onPress={() => router.push({ pathname: '/skill-history', params: { type: 'listening' } })}
+      >
+        <Text style={styles.historyBtnText}>Xem điểm đã lưu →</Text>
+      </TouchableOpacity>
+
       <Text style={styles.intro}>
         Nghe đoạn audio và gõ lại chính xác những gì bạn nghe được. Hệ thống chấm độ chính xác theo từng từ.
       </Text>
@@ -78,6 +85,8 @@ export const ListeningPanel: React.FC<{ refreshKey: number; onLoaded: () => void
 };
 
 const styles = StyleSheet.create({
+  historyBtn: { alignSelf: 'flex-start', paddingVertical: 8, paddingHorizontal: 14, borderRadius: Rounded.md, backgroundColor: Colors.surfaceContainerLowest, borderWidth: 1, borderColor: 'rgba(217, 227, 246, 0.9)' },
+  historyBtnText: { ...Typography.labelSm, color: Colors.primary, fontWeight: '700' },
   intro: { ...Typography.bodyMd, color: Colors.onSurfaceVariant },
   filterSection: { gap: 6 },
   filterLabel: { ...Typography.labelSm, color: Colors.outline, fontWeight: '700', letterSpacing: 0.5 },

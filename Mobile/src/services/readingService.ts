@@ -3,6 +3,7 @@ import {
   API_READING_ARTICLES,
   API_READING_ARTICLE_DETAIL,
   API_READING_ARTICLE_SUBMIT,
+  API_RESULTS_READING,
 } from './api';
 
 export interface ReadingQuestion {
@@ -36,6 +37,17 @@ export interface ReadingSubmitResult {
   correct_count: number;
   total_count: number;
   review: ReadingReviewItem[];
+}
+
+export interface ReadingHistoryItem {
+  id: number;
+  article_id: number;
+  title: string | null;
+  difficulty: string | null;
+  score: number | null;
+  correct_count: number;
+  total_count: number;
+  submitted_at: string;
 }
 
 export interface ParsedOption {
@@ -81,5 +93,10 @@ export const readingService = {
       review: res.review ?? [],
     };
   },
-};
 
+  /** Lịch sử các lần làm bài đọc của chính người dùng (mới nhất trước). */
+  async getHistory(): Promise<ReadingHistoryItem[]> {
+    const res = await apiRequest<{ attempts: ReadingHistoryItem[] }>(API_RESULTS_READING);
+    return (res.attempts ?? []).map((a) => ({ ...a, score: a.score === null ? null : Number(a.score) }));
+  },
+};

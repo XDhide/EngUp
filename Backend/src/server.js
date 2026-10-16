@@ -20,8 +20,8 @@ const app = express();
 // crossOriginResourcePolicy: cross-origin -> cho phép Website (cổng 5173) và Mobile tải audio từ /uploads
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // ---- Rate limit ----
 // Trước đây: 100 request / 15 phút theo IP cho TOÀN BỘ API -> nhiều người cùng dùng chung một mạng
